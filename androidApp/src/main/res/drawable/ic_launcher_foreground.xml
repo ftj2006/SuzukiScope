@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Gauge dial motif: outer arc, needle, centre hub -->
+    <path
+        android:pathData="M 24,74 A 34,34 0 1 1 84,74"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 54,54 L 74,36"
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 54,48 A 6,6 0 1 1 53.9,48 Z"
+        android:fillColor="#FFFFFF" />
+</vector>
