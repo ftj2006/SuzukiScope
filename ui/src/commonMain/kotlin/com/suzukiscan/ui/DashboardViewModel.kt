@@ -2,6 +2,7 @@ package com.suzukiscan.ui
 
 import com.suzukiscan.core.field.FieldDefinition
 import com.suzukiscan.core.field.FieldRegistry
+import com.suzukiscan.core.field.niceScaleMax
 import com.suzukiscan.core.log.LiveDataRecorder
 import com.suzukiscan.core.session.Elm327LiveDataSource
 import com.suzukiscan.core.session.LiveDataSession
@@ -52,12 +53,21 @@ class DashboardViewModel(
         pollJob = scope.launch {
             session.readings().collect { reading ->
                 _values.value = _values.value + (reading.fieldId to reading.value)
+                autoScaleGaugeMax(reading.fieldId, reading.value)
                 if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
                     recorder.record(reading)
                     _peaks.value = _peaks.value + (reading.fieldId to (recorder.peak(reading.fieldId) ?: reading.value))
                 }
             }
         }
+    }
+
+    /** Ratchets a field's gauge max up (never down) to the highest value ever recorded for it,
+     * rounded to a nice number — persisted so future runs start already scaled correctly. */
+    private fun autoScaleGaugeMax(id: String, value: Double) {
+        val field = registry.get(id) ?: return
+        if (value <= field.gaugeMax) return
+        setGaugeMax(id, niceScaleMax(value))
     }
 
     fun stop() {
