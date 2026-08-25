@@ -10,7 +10,8 @@
     <application
         android:allowBackup="true"
         android:label="pj-viewer"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/Theme.SuzukiScan">
         <!-- Android Auto (Car App Library, IOT category — vehicle status/monitoring apps). -->
         <meta-data
             android:name="com.google.android.gms.car.application"

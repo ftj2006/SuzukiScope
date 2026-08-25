@@ -34,7 +34,7 @@ fun DashboardScreen(
     val peaks by viewModel.peaks.collectAsState()
     val isLogging by viewModel.isLogging.collectAsState()
 
-    Column(modifier.fillMaxSize().padding(12.dp)) {
+    Column(modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
