@@ -57,9 +57,30 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
 
     fun toJson(): String = json.encodeToString(fields)
 
+    /**
+     * Applies only the user-editable properties from the saved JSON (enabled/recordEnabled/
+     * gaugeMax/thresholds/order) on top of the code-defined field, rather than replacing it
+     * wholesale — otherwise a stale save from before a code change (e.g. a new [FieldDefinition
+     * .decimals] value) would silently override it forever.
+     */
     fun loadFromJson(text: String) {
         val loaded: List<FieldDefinition> = json.decodeFromString(text)
-        loaded.forEach { _fields[it.id] = it }
+        val merged = LinkedHashMap<String, FieldDefinition>()
+        for (persisted in loaded) {
+            val existing = _fields[persisted.id]
+            merged[persisted.id] = existing?.copy(
+                enabled = persisted.enabled,
+                recordEnabled = persisted.recordEnabled,
+                gaugeMax = persisted.gaugeMax,
+                cautionThreshold = persisted.cautionThreshold,
+                warningThreshold = persisted.warningThreshold,
+            ) ?: persisted
+        }
+        for ((id, field) in _fields) {
+            if (!merged.containsKey(id)) merged[id] = field
+        }
+        _fields.clear()
+        _fields.putAll(merged)
     }
 
     companion object {
