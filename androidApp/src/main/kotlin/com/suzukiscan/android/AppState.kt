@@ -97,9 +97,13 @@ object AppState {
             dtcViewModel.attachClient(source.client)
             _connectionStatus.value = "Connected: ${transport.name}"
         } catch (e: Exception) {
-            _connectionStatus.value = "Connection failed: ${e.message}"
+            _connectionStatus.value = "Connection failed: ${describeError(e)}"
         }
     }
+
+    /** Some exceptions (e.g. Kotlin's `!!`, bare NullPointerException) carry no message, so
+     * fall back to the exception type rather than showing a bare "Connection failed: null". */
+    private fun describeError(e: Throwable): String = e.message ?: e::class.simpleName ?: "Unknown error"
 
     fun useSimulated() {
         dashboardViewModel.useSource(SimulatedLiveDataSource())
