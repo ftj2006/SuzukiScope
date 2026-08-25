@@ -2,6 +2,7 @@ package com.suzukiscan.core.elm327
 
 import com.suzukiscan.core.log.Elm327IoLog
 import com.suzukiscan.core.log.IoDirection
+import com.suzukiscan.core.log.describeError
 import com.suzukiscan.core.transport.Transport
 
 /** Whether the adapter should be initialised for K-Line (KWP2000) or CAN traffic. */
@@ -27,11 +28,16 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     suspend fun sendCommand(command: String, timeoutMs: Long = 2000): String {
         val cmd = command.trim()
         ioLog?.append(IoDirection.SENT, cmd)
-        transport.write((cmd + "\r").encodeToByteArray())
+        try {
+            transport.write((cmd + "\r").encodeToByteArray())
+        } catch (e: Exception) {
+            ioLog?.append(IoDirection.ERROR, "write failed for '$cmd': ${describeError(e)}")
+            throw e
+        }
         val raw = try {
             transport.readUntil('>'.code.toByte(), timeoutMs)
         } catch (e: Exception) {
-            ioLog?.append(IoDirection.ERROR, "no response to '$cmd': ${e.message}")
+            ioLog?.append(IoDirection.ERROR, "no response to '$cmd' within ${timeoutMs}ms: ${describeError(e)}")
             throw e
         }
         val rawText = raw.decodeToString()

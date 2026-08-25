@@ -86,6 +86,11 @@ class DashboardViewModel(
         if (wasRunning) start()
     }
 
+    /** Makes a connection attempt's log exportable even if it never becomes the active source
+     * (e.g. it failed to connect) — otherwise there'd be nothing to inspect via "Export log". */
+    fun attachIoLog(ioLog: com.suzukiscan.core.log.Elm327IoLog?) {
+        currentIoLog = ioLog
+    }
 
     fun setFieldEnabled(id: String, enabled: Boolean) {
         registry.setEnabled(id, enabled)

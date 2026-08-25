@@ -4,6 +4,10 @@ import com.suzukiscan.core.session.currentTimeMillis
 
 enum class IoDirection { SENT, RECEIVED, ERROR }
 
+/** Some exceptions carry no message (e.g. Kotlin's `!!`), so fall back to the exception type
+ * rather than showing a bare "null" in status text/logs. */
+fun describeError(e: Throwable): String = e.message ?: e::class.simpleName ?: "Unknown error"
+
 data class IoLogEntry(val timestampMs: Long, val direction: IoDirection, val text: String)
 
 /**

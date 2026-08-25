@@ -6,6 +6,7 @@ import com.suzukiscan.core.field.FieldCodec
 import com.suzukiscan.core.field.FieldDefinition
 import com.suzukiscan.core.log.Elm327IoLog
 import com.suzukiscan.core.log.IoDirection
+import com.suzukiscan.core.log.describeError
 import com.suzukiscan.core.transport.Transport
 
 /**
@@ -30,9 +31,22 @@ class Elm327LiveDataSource(
     private var lastHeader: List<Int>? = null
 
     suspend fun connect() {
-        client.connect()
-        client.reset()
-        client.initProtocol(protocol)
+        ioLog.append(IoDirection.SENT, "opening transport ${transport.name}")
+        try {
+            client.connect()
+        } catch (e: Exception) {
+            ioLog.append(IoDirection.ERROR, "transport connect failed: ${describeError(e)}")
+            throw e
+        }
+        ioLog.append(IoDirection.RECEIVED, "transport connected, sending ELM327 reset")
+        try {
+            client.reset()
+            client.initProtocol(protocol)
+        } catch (e: Exception) {
+            ioLog.append(IoDirection.ERROR, "ELM327 init failed: ${describeError(e)}")
+            throw e
+        }
+        ioLog.append(IoDirection.RECEIVED, "ELM327 initialised for $protocol")
         initialised = true
     }
 
@@ -62,7 +76,7 @@ class Elm327LiveDataSource(
             val dataPayload = rawAnswer.copyOfRange(prefix, rawAnswer.size - suffix)
             return FieldCodec.decode(field.decode, dataPayload)
         } catch (e: Exception) {
-            ioLog.append(IoDirection.ERROR, "poll '${field.id}' failed: ${e.message}")
+            ioLog.append(IoDirection.ERROR, "poll '${field.id}' failed: ${describeError(e)}")
             throw e
         }
     }

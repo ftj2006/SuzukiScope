@@ -2,6 +2,7 @@ package com.suzukiscan.android
 
 import com.suzukiscan.core.field.FieldRegistryStore
 import com.suzukiscan.core.elm327.Elm327Protocol
+import com.suzukiscan.core.log.describeError
 import com.suzukiscan.core.session.Elm327LiveDataSource
 import com.suzukiscan.core.session.SimulatedLiveDataSource
 import com.suzukiscan.core.transport.Transport
@@ -92,18 +93,17 @@ object AppState {
                 Elm327Protocol.KWP_FAST
             }
             val source = Elm327LiveDataSource(transport, protocol)
+            // Attached before connect() so a failed attempt's trace is still exportable via the
+            // connection-log button, instead of only ever seeing the last successful session's.
+            dashboardViewModel.attachIoLog(source.ioLog)
             source.connect()
             dashboardViewModel.useSource(source)
             dtcViewModel.attachClient(source.client)
             _connectionStatus.value = "Connected: ${transport.name}"
         } catch (e: Exception) {
-            _connectionStatus.value = "Connection failed: ${describeError(e)}"
+            _connectionStatus.value = "Connection failed: ${describeError(e)} \u2014 see connection log for detail"
         }
     }
-
-    /** Some exceptions (e.g. Kotlin's `!!`, bare NullPointerException) carry no message, so
-     * fall back to the exception type rather than showing a bare "Connection failed: null". */
-    private fun describeError(e: Throwable): String = e.message ?: e::class.simpleName ?: "Unknown error"
 
     fun useSimulated() {
         dashboardViewModel.useSource(SimulatedLiveDataSource())
