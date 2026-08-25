@@ -1,0 +1,41 @@
+name: Android build & release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        run: ./gradlew :androidApp:assembleDebug --no-daemon
+
+      # versionName drives the release tag so it's traceable to the source change.
+      - name: Read app version
+        id: version
+        run: echo "name=$(grep -oP 'versionName = "\K[^"]+' androidApp/build.gradle.kts)" >> "$GITHUB_OUTPUT"
+
+      - name: Locate APK
+        id: apk
+        run: echo "path=$(find androidApp/build/outputs/apk/debug -name '*.apk' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.name }}-build${{ github.run_number }}
+          name: pj-sz-viewer v${{ steps.version.outputs.name }} (build ${{ github.run_number }})
+          files: ${{ steps.apk.outputs.path }}
+          make_latest: true
