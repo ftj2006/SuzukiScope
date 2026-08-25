@@ -34,8 +34,8 @@ fun main() = application {
             AppScreen(
                 dashboardViewModel = viewModel,
                 dtcViewModel = dtcViewModel,
-                onExportCsv = { csv -> saveCsvViaFileDialog(csv) },
-                onExportLog = { log -> saveLogViaFileDialog(log) },
+                onExportCsv = { fileName, csv -> saveCsvViaFileDialog(fileName, csv) },
+                onExportLog = { fileName, log -> saveLogViaFileDialog(fileName, log) },
                 connectionBar = {
                     ConnectionBar(
                         status = connectionStatus,
@@ -87,18 +87,18 @@ fun main() = application {
     }
 }
 
-private fun saveCsvViaFileDialog(csv: String) {
+private fun saveCsvViaFileDialog(fileName: String, csv: String) {
     val dialog = FileDialog(null as Frame?, "Export live-data log", FileDialog.SAVE)
-    dialog.file = "suzuki-scan-log.csv"
+    dialog.file = fileName
     dialog.isVisible = true
     val name = dialog.file ?: return
     val dir = dialog.directory ?: return
     File(dir, name).writeText(csv)
 }
 
-private fun saveLogViaFileDialog(log: String) {
+private fun saveLogViaFileDialog(fileName: String, log: String) {
     val dialog = FileDialog(null as Frame?, "Export connection log", FileDialog.SAVE)
-    dialog.file = "suzuki-scan-connection-log.txt"
+    dialog.file = fileName
     dialog.isVisible = true
     val name = dialog.file ?: return
     val dir = dialog.directory ?: return

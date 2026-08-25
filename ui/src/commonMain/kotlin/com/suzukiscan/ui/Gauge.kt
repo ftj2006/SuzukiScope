@@ -37,6 +37,7 @@ fun Gauge(
     peak: Double? = null,
     cautionThreshold: Double? = null,
     warningThreshold: Double? = null,
+    decimals: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -83,9 +84,9 @@ fun Gauge(
                     )
                 }
 
-                cautionThreshold?.let { tick(it, Color(0xFFFFB300), 0.2f) }
-                warningThreshold?.let { tick(it, Color(0xFFE53935), 0.2f) }
-                peak?.let { tick(it, Color(0xFFFF5252), 0.25f) }
+                cautionThreshold?.let { tick(it, Color(0xFFFFB300).copy(alpha = 0.55f), 0.1f) }
+                warningThreshold?.let { tick(it, Color(0xFFE53935).copy(alpha = 0.55f), 0.1f) }
+                peak?.let { tick(it, Color(0xFFFFFFFF), 0.28f) }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val valueColor = gaugeColor(
@@ -95,7 +96,7 @@ fun Gauge(
                     warningThreshold,
                 )
                 Text(
-                    formatValue(value),
+                    formatValue(value, decimals),
                     style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
                     color = valueColor,
                 )
@@ -103,7 +104,7 @@ fun Gauge(
             }
         }
         Text(label, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-        peak?.let { Text("peak: ${formatValue(it)} $unit", style = androidx.compose.material3.MaterialTheme.typography.labelSmall) }
+        peak?.let { Text("peak: ${formatValue(it, decimals)} $unit", style = androidx.compose.material3.MaterialTheme.typography.labelSmall) }
     }
 }
 
@@ -119,5 +120,8 @@ private fun gaugeColor(fraction: Double, value: Double, cautionThreshold: Double
     }
 }
 
-private fun formatValue(v: Double): String =
-    if (v == v.toLong().toDouble()) v.toLong().toString() else "%.1f".format(v)
+private fun formatValue(v: Double, decimals: Int?): String = when {
+    decimals != null -> "%.${decimals}f".format(v)
+    v == v.toLong().toDouble() -> v.toLong().toString()
+    else -> "%.1f".format(v)
+}

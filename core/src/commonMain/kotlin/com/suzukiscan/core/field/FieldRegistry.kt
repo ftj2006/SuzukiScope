@@ -106,6 +106,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01),
                     gaugeMin = 0.0,
                     gaugeMax = 1.6,
+                    decimals = 2,
                 ),
                 FieldDefinition(
                     id = "engine.rpm",
@@ -117,6 +118,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     gaugeMax = 7000.0,
                     cautionThreshold = 6000.0,
                     warningThreshold = 6500.0,
+                    decimals = 0,
                 ),
                 FieldDefinition(
                     id = "engine.throttle",
@@ -135,6 +137,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     decode = DecodeSpec(skipBytes = 42, byteLength = 1),
                     gaugeMin = 0.0,
                     gaugeMax = 260.0,
+                    decimals = 0,
                 ),
                 FieldDefinition(
                     id = "engine.battery_voltage",

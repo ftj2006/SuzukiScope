@@ -31,6 +31,8 @@ data class FieldDefinition(
     val cautionThreshold: Double? = null,
     /** "Warning" level — gauge turns red at/above this value, if set. */
     val warningThreshold: Double? = null,
+    /** Fixed decimal places to display, e.g. 0 for RPM/Speed, 2 for Boost Pressure. Null = auto. */
+    val decimals: Int? = null,
 )
 
 /** How to build the KWP2000/UDS request for this field. */

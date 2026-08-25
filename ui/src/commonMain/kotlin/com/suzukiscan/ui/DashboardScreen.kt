@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    onExport: (String) -> Unit,
-    onExportLog: (String) -> Unit = {},
+    onExport: (fileName: String, csv: String) -> Unit,
+    onExportLog: (fileName: String, log: String) -> Unit = { _, _ -> },
     connectionBar: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -41,14 +41,21 @@ fun DashboardScreen(
         ) {
             connectionBar()
             androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            FilledIconButton(
-                onClick = { if (isLogging) viewModel.stopLogging() else viewModel.startLogging() },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = if (isLogging) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    contentColor = if (isLogging) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                Text(if (isLogging) "\u23F9" else "\u23FA") // stop / record icon
+            // Plain (unfilled) until actually recording, so it doesn't look pre-selected when idle.
+            if (isLogging) {
+                FilledIconButton(
+                    onClick = { viewModel.stopLogging() },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                ) {
+                    Text("\u23F9") // stop icon
+                }
+            } else {
+                IconButton(onClick = { viewModel.startLogging() }) {
+                    Text("\u23FA") // record icon
+                }
             }
             if (isLogging) {
                 Text(
@@ -57,10 +64,10 @@ fun DashboardScreen(
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            IconButton(onClick = { onExportLog(viewModel.exportIoLog()) }) {
+            IconButton(onClick = { onExportLog(viewModel.exportLogFileName(), viewModel.exportIoLog()) }) {
                 Text("\uD83D\uDCCB") // clipboard "connection log" icon
             }
-            IconButton(onClick = { onExport(viewModel.exportCsv()) }) {
+            IconButton(onClick = { onExport(viewModel.exportCsvFileName(), viewModel.exportCsv()) }) {
                 Text("\uD83D\uDCBE") // floppy-disk "export/save" icon
             }
         }
@@ -75,6 +82,7 @@ fun DashboardScreen(
                     peak = peaks[field.id],
                     cautionThreshold = field.cautionThreshold,
                     warningThreshold = field.warningThreshold,
+                    decimals = field.decimals,
                 )
             }
         }

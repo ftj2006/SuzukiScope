@@ -62,8 +62,8 @@ class MainActivity : ComponentActivity() {
                     AppScreen(
                         dashboardViewModel = viewModel,
                         dtcViewModel = dtcViewModel,
-                        onExportCsv = { csv -> shareCsv(csv) },
-                        onExportLog = { log -> shareLog(log) },
+                        onExportCsv = { fileName, csv -> shareCsv(fileName, csv) },
+                        onExportLog = { fileName, log -> shareLog(fileName, log) },
                         connectionBar = {
                             ConnectionBar(
                                 status = connectionStatus,
@@ -128,8 +128,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun shareCsv(csv: String) {
-        val file = File(cacheDir, "suzuki-scan-log.csv").apply { writeText(csv) }
+    private fun shareCsv(fileName: String, csv: String) {
+        val file = File(cacheDir, fileName).apply { writeText(csv) }
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/csv"
@@ -139,8 +139,8 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent.createChooser(intent, "Export live-data log"))
     }
 
-    private fun shareLog(log: String) {
-        val file = File(cacheDir, "suzuki-scan-connection-log.txt").apply { writeText(log) }
+    private fun shareLog(fileName: String, log: String) {
+        val file = File(cacheDir, fileName).apply { writeText(log) }
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

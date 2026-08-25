@@ -23,8 +23,8 @@ import com.suzukiscan.core.field.FieldCatalogLoader
 fun AppScreen(
     dashboardViewModel: DashboardViewModel,
     dtcViewModel: DtcViewModel,
-    onExportCsv: (String) -> Unit,
-    onExportLog: (String) -> Unit = {},
+    onExportCsv: (fileName: String, csv: String) -> Unit,
+    onExportLog: (fileName: String, log: String) -> Unit = { _, _ -> },
     connectionBar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {

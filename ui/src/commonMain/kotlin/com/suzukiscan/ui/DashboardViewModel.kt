@@ -6,6 +6,7 @@ import com.suzukiscan.core.log.LiveDataRecorder
 import com.suzukiscan.core.session.Elm327LiveDataSource
 import com.suzukiscan.core.session.LiveDataSession
 import com.suzukiscan.core.session.LiveDataSource
+import com.suzukiscan.core.session.newSessionId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,10 @@ class DashboardViewModel(
 
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
+
+    /** Identifies the current/last logging session (e.g. "20260825-101532"), used to name export files. */
+    private val _sessionId = MutableStateFlow<String?>(null)
+    val sessionId: StateFlow<String?> = _sessionId.asStateFlow()
 
     private var pollJob: Job? = null
     private var session = LiveDataSession(source, fieldsProvider = { _fields.value.filter { it.enabled || it.recordEnabled } })
@@ -124,6 +129,7 @@ class DashboardViewModel(
     fun startLogging() {
         recorder.clear()
         _peaks.value = emptyMap()
+        _sessionId.value = newSessionId()
         _isLogging.value = true
     }
 
@@ -135,6 +141,10 @@ class DashboardViewModel(
         labelFor = { id -> registry.get(id)?.label ?: id },
         unitFor = { id -> registry.get(id)?.unit ?: "" },
     )
+
+    /** Unique per-session file name so exporting multiple sessions doesn't overwrite each other. */
+    fun exportCsvFileName(): String = "suzuki-scan-log-${_sessionId.value ?: newSessionId()}.csv"
+    fun exportLogFileName(): String = "suzuki-scan-connection-log-${_sessionId.value ?: newSessionId()}.txt"
 
     /** Raw ELM327 AT-command/response trace for the active hardware connection (if any) —
      * useful for diagnosing the first few real vehicle connections, safe to ignore otherwise. */
