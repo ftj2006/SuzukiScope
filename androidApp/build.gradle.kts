@@ -8,12 +8,30 @@ android {
     namespace = "com.suzukiscan.android"
     compileSdk = 35
 
+    // Committed so local and CI builds always sign with the same key — otherwise every CI run
+    // (which has no persisted ~/.android/debug.keystore) generates a new one, and installing a
+    // newer build over an older one fails with "conflicts with an existing package".
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.suzukiscan.android"
         minSdk = 26
         targetSdk = 35
         versionCode = 3
         versionName = "1.1.0"
+    }
+
+    buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {
