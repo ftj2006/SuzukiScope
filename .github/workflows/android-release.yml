@@ -20,22 +20,26 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
-        run: ./gradlew :androidApp:assembleDebug --no-daemon
+      - name: Build APKs
+        run: ./gradlew :androidApp:assembleDebug :androidApp:assembleRelease --no-daemon
 
       # versionName drives the release tag so it's traceable to the source change.
       - name: Read app version
         id: version
         run: echo "name=$(grep -oP 'versionName = "\K[^"]+' androidApp/build.gradle.kts)" >> "$GITHUB_OUTPUT"
 
-      - name: Locate APK
+      - name: Locate APKs
         id: apk
-        run: echo "path=$(find androidApp/build/outputs/apk/debug -name '*.apk' | head -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "debug=$(find androidApp/build/outputs/apk/debug -name '*.apk' | head -1)" >> "$GITHUB_OUTPUT"
+          echo "release=$(find androidApp/build/outputs/apk/release -name '*.apk' | head -1)" >> "$GITHUB_OUTPUT"
 
-      - name: Create release with APK
+      - name: Create release with APKs
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.name }}-build${{ github.run_number }}
           name: pj-sz-viewer v${{ steps.version.outputs.name }} (build ${{ github.run_number }})
-          files: ${{ steps.apk.outputs.path }}
+          files: |
+            ${{ steps.apk.outputs.debug }}
+            ${{ steps.apk.outputs.release }}
           make_latest: true

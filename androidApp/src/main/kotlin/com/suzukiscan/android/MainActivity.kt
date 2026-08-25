@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         AppState.initPersistence(File(filesDir, "field-config.json"))
         AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
+        AppState.initAlerts(applicationContext)
         setContent {
             val viewModel = AppState.dashboardViewModel
             val dtcViewModel = AppState.dtcViewModel

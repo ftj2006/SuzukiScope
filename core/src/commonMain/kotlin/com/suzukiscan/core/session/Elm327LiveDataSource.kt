@@ -8,16 +8,19 @@ import com.suzukiscan.core.log.Elm327IoLog
 import com.suzukiscan.core.log.IoDirection
 import com.suzukiscan.core.log.describeError
 import com.suzukiscan.core.transport.Transport
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /**
  * Real hardware [LiveDataSource]: talks to an ELM327 adapter over any [Transport]
  * (Bluetooth SPP, Wi-Fi, serial) using the diagnostic session parameters in each
  * field's [com.suzukiscan.core.field.RequestSpec]/[com.suzukiscan.core.field.DecodeSpec].
  *
- * NOTE: does not yet manage a persistent KWP2000 session (StartSession + periodic
- * TesterPresent) — each poll currently re-addresses and sends one request/response.
- * That's sufficient for CAN-UDS reads and many K-Line ReadDataByLocalIdentifier
- * requests but will need session keep-alive added for modules that require it.
+ * Maintains the K-Line (KWP2000) diagnostic session with a periodic TesterPresent (mode 0x3E)
+ * keep-alive (see [startKeepAlive]) — CAN-UDS doesn't need this since each read is stateless.
  */
 class Elm327LiveDataSource(
     private val transport: Transport,
@@ -29,6 +32,7 @@ class Elm327LiveDataSource(
     val client = Elm327Client(transport, ioLog)
     private var initialised = false
     private var lastHeader: List<Int>? = null
+    private var keepAliveJob: Job? = null
 
     suspend fun connect() {
         ioLog.append(IoDirection.SENT, "opening transport ${transport.name}")
@@ -51,8 +55,36 @@ class Elm327LiveDataSource(
     }
 
     suspend fun disconnect() {
+        stopKeepAlive()
         client.disconnect()
         initialised = false
+    }
+
+    /**
+     * Starts sending TesterPresent (mode 0x3E) every [intervalMs] to keep the K-Line diagnostic
+     * session alive between polls. No-op for CAN-UDS, which is stateless per-read. Safe to call
+     * repeatedly (restarts); safe to run alongside [poll] since [Elm327Client.sendCommand] is
+     * mutex-guarded.
+     */
+    fun startKeepAlive(scope: CoroutineScope, intervalMs: Long = 2000) {
+        if (protocol != Elm327Protocol.KWP_FAST) return
+        keepAliveJob?.cancel()
+        keepAliveJob = scope.launch {
+            while (isActive) {
+                delay(intervalMs)
+                if (!initialised) continue
+                try {
+                    client.sendCommand("3E")
+                } catch (e: Exception) {
+                    ioLog.append(IoDirection.ERROR, "keep-alive failed: ${describeError(e)}")
+                }
+            }
+        }
+    }
+
+    fun stopKeepAlive() {
+        keepAliveJob?.cancel()
+        keepAliveJob = null
     }
 
     override suspend fun poll(field: FieldDefinition): Double {

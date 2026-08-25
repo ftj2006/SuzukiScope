@@ -4,6 +4,8 @@ import com.suzukiscan.core.log.Elm327IoLog
 import com.suzukiscan.core.log.IoDirection
 import com.suzukiscan.core.log.describeError
 import com.suzukiscan.core.transport.Transport
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Whether the adapter should be initialised for K-Line (KWP2000) or CAN traffic. */
 enum class Elm327Protocol(val atSpValue: String) {
@@ -21,11 +23,15 @@ enum class Elm327Protocol(val atSpValue: String) {
  */
 class Elm327Client(private val transport: Transport, private val ioLog: Elm327IoLog? = null) {
 
+    // Guards the transport so a background TesterPresent keep-alive (see Elm327LiveDataSource)
+    // can never interleave its bytes with an in-flight poll request/response.
+    private val mutex = Mutex()
+
     suspend fun connect() = transport.connect()
     suspend fun disconnect() = transport.disconnect()
 
     /** Sends a raw AT/hex command, terminated with CR, and returns the trimmed text response. */
-    suspend fun sendCommand(command: String, timeoutMs: Long = 2000): String {
+    suspend fun sendCommand(command: String, timeoutMs: Long = 2000): String = mutex.withLock {
         val cmd = command.trim()
         ioLog?.append(IoDirection.SENT, cmd)
         try {
@@ -42,7 +48,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         }
         val rawText = raw.decodeToString()
         ioLog?.append(IoDirection.RECEIVED, rawText.replace("\r", "\\r").replace("\n", "\\n"))
-        return cleanResponse(rawText)
+        cleanResponse(rawText)
     }
 
     /** Standard reset + quiet init sequence. */

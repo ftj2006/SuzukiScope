@@ -7,6 +7,7 @@ import com.suzukiscan.core.log.LiveDataRecorder
 import com.suzukiscan.core.session.Elm327LiveDataSource
 import com.suzukiscan.core.session.LiveDataSession
 import com.suzukiscan.core.session.LiveDataSource
+import com.suzukiscan.core.session.currentTimeMillis
 import com.suzukiscan.core.session.newSessionId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,6 +28,8 @@ class DashboardViewModel(
     val recorder: LiveDataRecorder = LiveDataRecorder(),
     /** Called after any field config change (enabled/order/thresholds/max) so callers can persist it. */
     private val persist: () -> Unit = {},
+    /** Fires once per threshold crossing (e.g. vibration/tone); null = silent (default, desktop). */
+    var alertSink: WarningAlertSink? = null,
 ) {
     private val _fields = MutableStateFlow(registry.fields)
     val fields: StateFlow<List<FieldDefinition>> = _fields.asStateFlow()
@@ -36,6 +39,11 @@ class DashboardViewModel(
 
     private val _peaks = MutableStateFlow<Map<String, Double>>(emptyMap())
     val peaks: StateFlow<Map<String, Double>> = _peaks.asStateFlow()
+
+    /** Rolling recent-value buffer per field (regardless of logging state) for the History tab. */
+    private val _history = MutableStateFlow<Map<String, List<Double>>>(emptyMap())
+    val history: StateFlow<Map<String, List<Double>>> = _history.asStateFlow()
+    private val historySize = 120
 
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
@@ -48,12 +56,20 @@ class DashboardViewModel(
     private var session = LiveDataSession(source, fieldsProvider = { _fields.value.filter { it.enabled || it.recordEnabled } })
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
 
+    // Warning-alert edge detection (fire once on entering warning state, not every poll) and a
+    // simple "is the hardware connection still alive" watchdog used by AppState's auto-reconnect.
+    private val fieldsInWarning = HashSet<String>()
+    private var lastReadingAtMs = currentTimeMillis()
+
     fun start() {
         if (pollJob != null) return
         pollJob = scope.launch {
             session.readings().collect { reading ->
+                lastReadingAtMs = currentTimeMillis()
                 _values.value = _values.value + (reading.fieldId to reading.value)
+                _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
                 autoScaleGaugeMax(reading.fieldId, reading.value)
+                checkWarning(reading.fieldId, reading.value)
                 if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
                     recorder.record(reading)
                     _peaks.value = _peaks.value + (reading.fieldId to (recorder.peak(reading.fieldId) ?: reading.value))
@@ -61,6 +77,23 @@ class DashboardViewModel(
             }
         }
     }
+
+    private fun checkWarning(id: String, value: Double) {
+        val threshold = registry.get(id)?.warningThreshold ?: return
+        val inWarning = value >= threshold
+        if (inWarning) {
+            if (fieldsInWarning.add(id)) alertSink?.onWarning(registry.get(id)!!, value)
+        } else {
+            fieldsInWarning.remove(id)
+        }
+    }
+
+    /** True while backed by real hardware (vs. simulated) — used by the auto-reconnect watchdog. */
+    fun isUsingHardwareSource(): Boolean = source is Elm327LiveDataSource
+
+    /** Milliseconds since the last successful reading — a long gap while on hardware means the
+     * connection has likely dropped even though no exception ever reached this layer. */
+    fun millisSinceLastReading(): Long = currentTimeMillis() - lastReadingAtMs
 
     /** Ratchets a field's gauge max up (never down) to the highest value ever recorded for it,
      * rounded to a nice number — persisted so future runs start already scaled correctly. */
@@ -79,10 +112,14 @@ class DashboardViewModel(
     fun useSource(newSource: LiveDataSource) {
         val wasRunning = pollJob != null
         stop()
+        (source as? Elm327LiveDataSource)?.stopKeepAlive()
         source = newSource
+        (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
         session = LiveDataSession(source, fieldsProvider = { _fields.value.filter { it.enabled || it.recordEnabled } })
         currentIoLog = (newSource as? Elm327LiveDataSource)?.ioLog
         _values.value = emptyMap()
+        fieldsInWarning.clear()
+        lastReadingAtMs = currentTimeMillis()
         if (wasRunning) start()
     }
 

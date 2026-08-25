@@ -4,20 +4,33 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Gauge dial motif: outer arc, needle, centre hub -->
+    <!-- Gauge dial motif: colour-graded arc (green/amber/red), needle, centre hub, matching the
+         in-app Gauge widget's own colour scheme so the icon reads as "this app's gauges". -->
     <path
-        android:pathData="M 24,74 A 34,34 0 1 1 84,74"
+        android:pathData="M 24,74 A 34,34 0 1 1 60,38.7"
+        android:strokeColor="#43A047"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 60,38.7 A 34,34 0 0 1 74,50.2"
+        android:strokeColor="#FFB300"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 74,50.2 A 34,34 0 0 1 84,74"
+        android:strokeColor="#E53935"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 54,54 L 76,32"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="7"
+        android:strokeWidth="5"
         android:strokeLineCap="round"
         android:fillColor="#00000000" />
     <path
-        android:pathData="M 54,54 L 74,36"
-        android:strokeColor="#4FC3F7"
-        android:strokeWidth="6"
-        android:strokeLineCap="round"
-        android:fillColor="#00000000" />
-    <path
-        android:pathData="M 54,48 A 6,6 0 1 1 53.9,48 Z"
+        android:pathData="M 54,47 A 7,7 0 1 1 53.9,47 Z"
         android:fillColor="#FFFFFF" />
 </vector>

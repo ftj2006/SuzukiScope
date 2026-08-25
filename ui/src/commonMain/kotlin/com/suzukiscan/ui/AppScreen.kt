@@ -34,18 +34,20 @@ fun AppScreen(
     // The full 588-field extraction catalog loads in (disabled by default) the first time the
     // Configure fields tab is opened, instead of requiring a manual button press.
     LaunchedEffect(tab) {
-        if (tab == 1) dashboardViewModel.loadFullCatalog(FieldCatalogLoader.loadFullCatalog())
+        if (tab == 2) dashboardViewModel.loadFullCatalog(FieldCatalogLoader.loadFullCatalog())
     }
 
     Column(modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tab) {
             Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Dashboard") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Configure fields") })
-            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("DTC") })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("History") })
+            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Configure fields") })
+            Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text("DTC") })
         }
         when (tab) {
             0 -> DashboardScreen(dashboardViewModel, onExportCsv, onExportLog, connectionBar, Modifier.fillMaxSize())
-            1 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize())
+            1 -> HistoryScreen(dashboardViewModel, Modifier.fillMaxSize())
+            2 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize())
             else -> DtcScreen(dtcViewModel, moduleOptionsFrom(fields), Modifier.fillMaxSize())
         }
     }

@@ -10,7 +10,10 @@ android {
 
     // Committed so local and CI builds always sign with the same key — otherwise every CI run
     // (which has no persisted ~/.android/debug.keystore) generates a new one, and installing a
-    // newer build over an older one fails with "conflicts with an existing package".
+    // newer build over an older one fails with "conflicts with an existing package". Separate
+    // release.keystore for the release build type — for Play Console Internal App Sharing this
+    // upload key doesn't need to be ultra-secret, but keeping it distinct from the debug key
+    // means debug builds never accidentally satisfy a release-signature check.
     signingConfigs {
         getByName("debug") {
             storeFile = file("debug.keystore")
@@ -18,19 +21,29 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = "pjszviewer"
+            keyAlias = "pjszviewerrelease"
+            keyPassword = "pjszviewer"
+        }
     }
 
     defaultConfig {
         applicationId = "com.suzukiscan.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.4.0"
+        versionCode = 10
+        versionName = "1.5.0"
     }
 
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
+        }
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
         }
     }
 

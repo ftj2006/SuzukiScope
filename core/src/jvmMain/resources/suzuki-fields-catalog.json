@@ -279,15 +279,17 @@
     "label": "Steering angle sensor",
     "unit": "degreeAngle",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
+      "params": [
+        2
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
     "decode": {
-      "skipBytes": 0,
+      "skipBytes": 2,
       "byteLength": 2,
       "signed": true,
       "scale": 0.04379406109805597,
@@ -295,22 +297,24 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.jeep.can_784_52129438_02.yaw_sensor_p2",
     "label": "Yaw sensor",
     "unit": "degreeS",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
+      "params": [
+        2
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
     "decode": {
-      "skipBytes": 2,
+      "skipBytes": 4,
       "byteLength": 1,
       "signed": true,
       "scale": 0.5898425196850393,
@@ -318,40 +322,19 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.jeep.can_784_52129438_02.pressure_sensor_p3",
     "label": "Pressure sensor",
     "unit": "kpa",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
-      "responsePrefixBytes": 0,
-      "responseSuffixBytes": 0
-    },
-    "decode": {
-      "skipBytes": 3,
-      "byteLength": 2,
-      "signed": true,
-      "scale": 0.999755851924192,
-      "offset": 0.0
-    },
-    "enabled": false,
-    "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
-    "verified": false
-  },
-  {
-    "id": "abs.jeep.can_784_52129438_02.lateral_acceleration_p5",
-    "label": "Lateral acceleration",
-    "unit": "G",
-    "request": {
-      "targetAddress": 609,
-      "isFunctionalAddress": false,
-      "mode": 33,
-      "params": [],
+      "params": [
+        2
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
@@ -359,27 +342,54 @@
       "skipBytes": 5,
       "byteLength": 2,
       "signed": true,
+      "scale": 0.999755851924192,
+      "offset": 0.0
+    },
+    "enabled": false,
+    "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
+    "verified": true
+  },
+  {
+    "id": "abs.jeep.can_784_52129438_02.lateral_acceleration_p5",
+    "label": "Lateral acceleration",
+    "unit": "G",
+    "request": {
+      "targetAddress": 1924,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        2
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 7,
+      "byteLength": 2,
+      "signed": true,
       "scale": 9.99755851924192,
       "offset": 0.0
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.jeep.can_784_52129438_02.longitudinal_sensor_p7",
     "label": "Longitudinal sensor",
     "unit": "G",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
+      "params": [
+        2
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
     "decode": {
-      "skipBytes": 7,
+      "skipBytes": 9,
       "byteLength": 1,
       "signed": true,
       "scale": 0.010236220472440945,
@@ -387,22 +397,24 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_02$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.jeep.can_784_52129438_03.engine_torque_p2",
     "label": "Engine torque",
     "unit": "",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
+      "params": [
+        3
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
     "decode": {
-      "skipBytes": 2,
+      "skipBytes": 4,
       "byteLength": 2,
       "signed": true,
       "scale": 0.07379375591296121,
@@ -410,22 +422,24 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_03$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.jeep.can_784_52129438_14.valve_feed_p2",
     "label": "Valve feed",
     "unit": "volt",
     "request": {
-      "targetAddress": 609,
+      "targetAddress": 1924,
       "isFunctionalAddress": false,
       "mode": 33,
-      "params": [],
+      "params": [
+        20
+      ],
       "responsePrefixBytes": 0,
       "responseSuffixBytes": 0
     },
     "decode": {
-      "skipBytes": 2,
+      "skipBytes": 4,
       "byteLength": 1,
       "signed": false,
       "scale": 0.1,
@@ -433,7 +447,7 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.abs.ABS_JEEP_CAN_784_52129438_14$",
-    "verified": false
+    "verified": true
   },
   {
     "id": "abs.kwp.00.steering_angle_sensor_p20",

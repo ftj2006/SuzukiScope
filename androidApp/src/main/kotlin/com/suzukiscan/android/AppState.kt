@@ -13,9 +13,11 @@ import com.suzukiscan.ui.DtcViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -46,6 +48,11 @@ object AppState {
         _connectionStatus.value = status
     }
 
+    /** Wires up vibration/tone alerts on warning-threshold crossings; call once with an Application context. */
+    fun initAlerts(context: android.content.Context) {
+        dashboardViewModel.alertSink = AndroidWarningAlertSink(context)
+    }
+
     /** Loads previously-saved field config (order/enabled/gauge max/thresholds) from disk, if any. */
     fun initPersistence(file: File) {
         if (persistFile != null) return
@@ -69,20 +76,23 @@ object AppState {
 
     init {
         dashboardViewModel.start()
+        startReconnectWatchdog()
     }
 
     suspend fun connectWifi() {
         val config = _wifiConfig.value
+        reconnectFactory = { WifiTransport(config.host, config.port) }
         _connectionStatus.value = "Connecting to ELM327 Wi-Fi adapter (${config.host}:${config.port})..."
         connect(WifiTransport(config.host, config.port))
     }
 
     suspend fun connectBluetooth(transport: Transport) {
+        reconnectFactory = { transport }
         _connectionStatus.value = "Connecting to Bluetooth adapter..."
         connect(transport)
     }
 
-    private suspend fun connect(transport: Transport) {
+    private suspend fun connect(transport: Transport): Boolean {
         try {
             // ELM327 must be initialised for one bus at a time — pick CAN vs KWP based on
             // whichever fields are currently enabled (responsePrefixBytes==0 means CAN-UDS).
@@ -100,13 +110,44 @@ object AppState {
             dashboardViewModel.useSource(source)
             dtcViewModel.attachClient(source.client)
             _connectionStatus.value = "Connected: ${transport.name}"
+            return true
         } catch (e: Exception) {
             _connectionStatus.value = "Connection failed: ${describeError(e)} \u2014 see connection log for detail"
+            return false
         }
     }
 
     fun useSimulated() {
+        reconnectFactory = null
         dashboardViewModel.useSource(SimulatedLiveDataSource())
         _connectionStatus.value = "Simulated data"
+    }
+
+    // --- Auto-reconnect ---
+    // Remembers how to re-open the last-used transport (Wi-Fi host/port, or the same Bluetooth
+    // device/socket) so a dropped connection can be retried automatically instead of requiring
+    // the driver to reach for the phone and tap Connect again mid-drive.
+    private var reconnectFactory: (() -> Transport)? = null
+    private var reconnecting = false
+
+    private fun startReconnectWatchdog() {
+        scope.launch {
+            var attempt = 0
+            while (true) {
+                delay(3000)
+                val factory = reconnectFactory
+                val stalled = dashboardViewModel.isUsingHardwareSource() &&
+                    dashboardViewModel.millisSinceLastReading() > 6000
+                if (factory == null || !stalled || reconnecting) continue
+                reconnecting = true
+                attempt++
+                _connectionStatus.value = "Connection lost \u2014 reconnecting (attempt $attempt)..."
+                val backoffMs = minOf(2000L * (1 shl (attempt - 1).coerceAtMost(4)), 30_000L)
+                delay(backoffMs)
+                val ok = connect(factory())
+                if (ok) attempt = 0
+                reconnecting = false
+            }
+        }
     }
 }

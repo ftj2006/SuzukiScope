@@ -226,14 +226,20 @@ def extract_dtc_codes(root):
 
 
 def resolve_precise_request(text, address_by_class):
-    """For classes extending SuzukiLocal(Address, part1, part2, localId) or
-    UDSLocal(Address, part1, part2, commonId) — an exact, unambiguous resolution of target
-    address + request id/mode, in preference to filename-based heuristics."""
+    """For classes extending SuzukiLocal(Address, part1, part2, localId),
+    UDSLocal(Address, part1, part2, commonId), or JeepLocal(Address, part, localId) — an exact,
+    unambiguous resolution of target address + request id/mode, in preference to filename-based
+    heuristics."""
     is_uds = bool(re.search(r'extends\s+UDSLocal\b', text))
     is_suzuki_local = bool(re.search(r'extends\s+SuzukiLocal\b', text))
-    if not (is_uds or is_suzuki_local):
+    is_jeep_local = bool(re.search(r'extends\s+JeepLocal\b', text))
+    if not (is_uds or is_suzuki_local or is_jeep_local):
         return None
-    m = re.search(r'super\(\s*(\w+)\$\.MODULE\$\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*(\d+)\s*\)', text)
+    if is_jeep_local:
+        # JeepLocal(Address, partNoNormalized, localId) — one part-number string, not two.
+        m = re.search(r'super\(\s*(\w+)\$\.MODULE\$\s*,\s*"[^"]*"\s*,\s*(\d+)\s*\)', text)
+    else:
+        m = re.search(r'super\(\s*(\w+)\$\.MODULE\$\s*,\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*(\d+)\s*\)', text)
     if not m:
         return None
     class_name, req_id = m.group(1) + "$", int(m.group(2))
