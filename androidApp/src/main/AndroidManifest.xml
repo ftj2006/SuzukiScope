@@ -1,18 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Mirrors com.malykh.szviewer.android's manifest: classic Bluetooth SPP + Wi-Fi only, no USB. -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Needed to read the connected Wi-Fi SSID (WifiManager.connectionInfo) — pre-Android 13
+         requires location permission for this API; Android 13+ can use NEARBY_WIFI_DEVICES
+         with neverForLocation instead so no location permission/consent is needed. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <application
         android:allowBackup="true"
+        android:name=".PjViewerApplication"
         android:label="pj-viewer"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.SuzukiScan">
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="6" />
         <!-- Android Auto (Car App Library, IOT category — vehicle status/monitoring apps). -->
         <meta-data
             android:name="com.google.android.gms.car.application"
@@ -28,7 +42,8 @@
         <service
             android:name=".auto.SuzukiScanCarAppService"
             android:exported="true"
-            android:label="pj-viewer">
+            android:label="pj-viewer"
+            android:icon="@mipmap/ic_launcher">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.IOT" />

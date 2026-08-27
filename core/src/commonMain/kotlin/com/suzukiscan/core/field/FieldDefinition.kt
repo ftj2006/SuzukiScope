@@ -27,12 +27,16 @@ data class FieldDefinition(
     /** Included in the CSV log/recorder when logging is running \u2014 independent of [enabled],
      * but defaults to the same pre-selection as [enabled] unless set separately. */
     val recordEnabled: Boolean = enabled,
-    /** Mild/"caution" indicator level — gauge turns amber at/above this value, if set. */
-    val cautionThreshold: Double? = null,
-    /** "Warning" level — gauge turns red at/above this value, if set. */
+    /** Mild indicator level — gauge turns amber at/above this value, if set. */
     val warningThreshold: Double? = null,
+    /** Severe level — gauge turns red at/above this value, and triggers a device alert, if set. */
+    val criticalThreshold: Double? = null,
     /** Fixed decimal places to display, e.g. 0 for RPM/Speed, 2 for Boost Pressure. Null = auto. */
     val decimals: Int? = null,
+    /** Set by a "test all fields" pass (see FieldRegistry) when polling this field failed/timed
+     * out on the vehicle actually tested \u2014 lets the config screen hide it by default without
+     * losing it, since it may still work on a different vehicle variant/module. */
+    val verifiedNoData: Boolean = false,
 )
 
 /** How to build the KWP2000/UDS request for this field. */

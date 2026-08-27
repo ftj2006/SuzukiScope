@@ -18,5 +18,18 @@ class GaugeScaleTest {
         assertEquals(6400.0, niceScaleMax(6400.0))
         assertEquals(100.0, niceScaleMax(100.0))
     }
+
+    @Test
+    fun roundsDownToNiceStepForItsMagnitude() {
+        assertEquals(-6500.0, niceScaleMin(-6420.0))
+        assertEquals(100.0, niceScaleMin(105.0))
+        assertTrue(kotlin.math.abs(niceScaleMin(-1.55) - -1.6) < 1e-9)
+    }
+
+    @Test
+    fun leavesExactMultiplesUnchangedForMin() {
+        assertEquals(-6400.0, niceScaleMin(-6400.0))
+        assertEquals(100.0, niceScaleMin(100.0))
+    }
 }
 

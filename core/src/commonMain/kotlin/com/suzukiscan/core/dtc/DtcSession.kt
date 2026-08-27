@@ -18,14 +18,29 @@ class DtcSession(
     private fun header(targetAddress: Int, isFunctionalAddress: Boolean) =
         listOf(if (isFunctionalAddress) 0xC0 else 0x80, targetAddress, 0xF1)
 
+    /**
+     * Sets the target address ELM327 will use for the next request — CAN-UDS needs its own
+     * 11-bit header plus flow-control setup (matching [com.suzukiscan.core.session
+     * .Elm327LiveDataSource]'s [Elm327Client.configureCan]) so multi-frame DTC responses aren't
+     * silently truncated, unlike KWP2000's simple physical/functional addressing.
+     */
+    private suspend fun addressModule(targetAddress: Int, isFunctionalAddress: Boolean, isCan: Boolean) {
+        if (isCan) {
+            client.configureCan(if (isFunctionalAddress) 0x7DF else targetAddress)
+        } else {
+            client.setHeader(header(targetAddress, isFunctionalAddress))
+        }
+    }
+
     /** Reads DTCs from [targetAddress]. Returns an empty list if the module reports none. */
     suspend fun readDtcs(
         targetAddress: Int,
         isFunctionalAddress: Boolean = false,
-        responsePrefixBytes: Int = 3,
-        responseSuffixBytes: Int = 1,
+        isCan: Boolean = false,
+        responsePrefixBytes: Int = if (isCan) 0 else 3,
+        responseSuffixBytes: Int = if (isCan) 0 else 1,
     ): List<DtcCode> {
-        client.setHeader(header(targetAddress, isFunctionalAddress))
+        addressModule(targetAddress, isFunctionalAddress, isCan)
         val answer = client.requestHex(byteArrayOf(Mode.READ_DTC, 0x00.toByte()))
         val framing = responsePrefixBytes + responseSuffixBytes
         if (answer.size <= framing + 2) return emptyList()
@@ -51,10 +66,11 @@ class DtcSession(
     suspend fun clearDtcs(
         targetAddress: Int,
         isFunctionalAddress: Boolean = true,
-        responsePrefixBytes: Int = 3,
-        responseSuffixBytes: Int = 1,
+        isCan: Boolean = false,
+        responsePrefixBytes: Int = if (isCan) 0 else 3,
+        responseSuffixBytes: Int = if (isCan) 0 else 1,
     ): Boolean {
-        client.setHeader(header(targetAddress, isFunctionalAddress))
+        addressModule(targetAddress, isFunctionalAddress, isCan)
         val answer = client.requestHex(byteArrayOf(Mode.CLEAR_DTC))
         val framing = responsePrefixBytes + responseSuffixBytes
         if (answer.size <= framing + 1) return false

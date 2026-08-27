@@ -19,6 +19,28 @@ object FieldCatalogLoader {
         val text = requireNotNull(
             FieldCatalogLoader::class.java.getResourceAsStream("/suzuki-fields-catalog.json"),
         ) { "suzuki-fields-catalog.json resource not found on classpath" }.bufferedReader().readText()
-        return json.decodeFromString(text)
+        val catalog: List<FieldDefinition> = json.decodeFromString(text)
+        val preferredLabels = listOf(
+            "Intake Temp",
+            "Air Flow",
+            "Intake manifold absolute pressure",
+            "Ignition-1",
+            "Injector power",
+            "O2 Sensor (Bank 1, Sensor 1)",
+            "Lambda Bank1 Front",
+            "Battery voltage",
+            "Vehicle speed (ECM)",
+            "Oil pressure",
+            "Fuel pressure",
+            "Primary pulley speed",
+            "Secondary pulley speed",
+            "Turbine speed",
+            "Output shaft speed",
+            "Gear actual ratio",
+            "Line pressure",
+        )
+        val preferred = preferredLabels.mapNotNull { label -> catalog.firstOrNull { it.label == label } }
+        val preferredIds = preferred.mapTo(HashSet()) { it.id }
+        return preferred + catalog.filterNot { it.id in preferredIds }
     }
 }

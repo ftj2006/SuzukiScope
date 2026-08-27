@@ -24,7 +24,7 @@ private const val SWEEP_ANGLE = 270f
 
 /**
  * A circular gauge showing the current value, a coloured arc for min..max, a tick mark for
- * the recorded peak value, and (if set) tick marks + colour changes at the caution/warning
+ * the recorded peak value, and (if set) tick marks + colour changes at the warning/critical
  * thresholds instead of the generic min/max-fraction colouring.
  */
 @Composable
@@ -35,8 +35,8 @@ fun Gauge(
     min: Double,
     max: Double,
     peak: Double? = null,
-    cautionThreshold: Double? = null,
     warningThreshold: Double? = null,
+    criticalThreshold: Double? = null,
     decimals: Int? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -61,7 +61,7 @@ fun Gauge(
 
                 val fraction = ((value - min) / (max - min)).coerceIn(0.0, 1.0)
                 drawArc(
-                    color = gaugeColor(fraction, value, cautionThreshold, warningThreshold),
+                    color = gaugeColor(fraction, value, warningThreshold, criticalThreshold),
                     startAngle = START_ANGLE,
                     sweepAngle = (SWEEP_ANGLE * fraction).toFloat(),
                     useCenter = false,
@@ -84,16 +84,16 @@ fun Gauge(
                     )
                 }
 
-                cautionThreshold?.let { tick(it, Color(0xFFFFB300).copy(alpha = 0.55f), 0.1f) }
-                warningThreshold?.let { tick(it, Color(0xFFE53935).copy(alpha = 0.55f), 0.1f) }
+                warningThreshold?.let { tick(it, Color(0xFFFFB300).copy(alpha = 0.55f), 0.1f) }
+                criticalThreshold?.let { tick(it, Color(0xFFE53935).copy(alpha = 0.55f), 0.1f) }
                 peak?.let { tick(it, Color(0xFFFFFFFF), 0.28f) }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 val valueColor = gaugeColor(
                     ((value - min) / (max - min)).coerceIn(0.0, 1.0),
                     value,
-                    cautionThreshold,
                     warningThreshold,
+                    criticalThreshold,
                 )
                 Text(
                     formatValue(value, decimals),
@@ -108,11 +108,11 @@ fun Gauge(
     }
 }
 
-/** Colours by caution/warning thresholds when set, else falls back to the min..max fraction. */
-private fun gaugeColor(fraction: Double, value: Double, cautionThreshold: Double?, warningThreshold: Double?): Color = when {
-    warningThreshold != null && value >= warningThreshold -> Color(0xFFE53935)
-    cautionThreshold != null && value >= cautionThreshold -> Color(0xFFFFB300)
-    cautionThreshold != null || warningThreshold != null -> Color(0xFF43A047)
+/** Colours by warning/critical thresholds when set, else falls back to the min..max fraction. */
+private fun gaugeColor(fraction: Double, value: Double, warningThreshold: Double?, criticalThreshold: Double?): Color = when {
+    criticalThreshold != null && value >= criticalThreshold -> Color(0xFFE53935)
+    warningThreshold != null && value >= warningThreshold -> Color(0xFFFFB300)
+    warningThreshold != null || criticalThreshold != null -> Color(0xFF43A047)
     else -> when {
         fraction > 0.85 -> Color(0xFFE53935)
         fraction > 0.65 -> Color(0xFFFFB300)

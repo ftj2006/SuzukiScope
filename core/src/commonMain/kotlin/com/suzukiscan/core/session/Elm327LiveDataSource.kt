@@ -24,15 +24,32 @@ import kotlinx.coroutines.launch
  */
 class Elm327LiveDataSource(
     private val transport: Transport,
-    private val protocol: Elm327Protocol = Elm327Protocol.KWP_FAST,
+    val protocol: Elm327Protocol = Elm327Protocol.KWP_FAST,
     /** Raw AT-command/response trace — useful while validating the first real vehicle connections. */
     val ioLog: Elm327IoLog = Elm327IoLog(),
 ) : LiveDataSource {
+    val transportName: String get() = transport.name
     /** Exposed so other features (e.g. DTC read/clear) can share this connection's client. */
     val client = Elm327Client(transport, ioLog)
     private var initialised = false
     private var lastHeader: List<Int>? = null
+    private var canConfiguration: Int? = null
+    private var kwpInitialisedTarget: Int? = null
     private var keepAliveJob: Job? = null
+
+    // Several fields (e.g. the default oil/water temp, boost, rpm, throttle, speed set) share an
+    // identical RequestSpec (same target/mode/params) and only differ in where they decode their
+    // value from within the shared response payload. Without this cache, each field would issue
+    // its own round trip for what is really the same request, multiplying real-hardware latency
+    // by the number of fields sharing it. A failed request is cached too (as the exception it
+    // threw) so a timeout on the shared request fails fast for every field in the same cycle
+    // instead of each one waiting out its own full timeout in turn. Cleared once per polling
+    // cycle via [beginCycle].
+    private val requestCache = HashMap<String, Result<ByteArray>>()
+
+    override fun beginCycle() {
+        requestCache.clear()
+    }
 
     suspend fun connect() {
         ioLog.append(IoDirection.SENT, "opening transport ${transport.name}")
@@ -91,14 +108,38 @@ class Elm327LiveDataSource(
         check(initialised) { "Elm327LiveDataSource.connect() must be called before polling" }
 
         try {
-            val header = listOf(if (field.request.isFunctionalAddress) 0xC0 else 0x80, field.request.targetAddress, 0xF1)
-            if (header != lastHeader) {
-                client.setHeader(header)
-                lastHeader = header
+            if (protocol == Elm327Protocol.CAN_11BIT_500K) {
+                val header = listOf(field.request.targetAddress)
+                if (header != lastHeader) {
+                    val target = if (field.request.isFunctionalAddress) 0x7DF else field.request.targetAddress
+                    if (canConfiguration != target) {
+                        client.configureCan(target)
+                        canConfiguration = target
+                    }
+                    client.setCanHeader(target)
+                    lastHeader = header
+                }
+            } else {
+                val header = listOf(if (field.request.isFunctionalAddress) 0xC0 else 0x80, field.request.targetAddress, 0xF1)
+                if (header != lastHeader) {
+                    client.setHeader(header)
+                    if (kwpInitialisedTarget != field.request.targetAddress) {
+                        client.sendCommand("ATST19")
+                        client.sendCommand("ATFI", timeoutMs = 1000)
+                        kwpInitialisedTarget = field.request.targetAddress
+                    }
+                    lastHeader = header
+                }
             }
 
             val requestPayload = FieldCodec.buildRequestPayload(field.request)
-            val rawAnswer = client.requestHex(requestPayload)
+            val cacheKey = "${field.request.targetAddress}:${field.request.isFunctionalAddress}:" +
+                requestPayload.joinToString("") { "%02X".format(it) }
+            val rawAnswer = (requestCache[cacheKey] ?: run {
+                val result = runCatching { client.requestHex(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 500 else 1000) }
+                requestCache[cacheKey] = result
+                result
+            }).getOrThrow()
 
             val prefix = field.request.responsePrefixBytes
             val suffix = field.request.responseSuffixBytes

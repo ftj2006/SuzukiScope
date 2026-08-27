@@ -17,6 +17,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(compose.runtime)
                 implementation(compose.ui)
+                implementation("androidx.compose.material:material-icons-extended:1.7.0")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             }
         }

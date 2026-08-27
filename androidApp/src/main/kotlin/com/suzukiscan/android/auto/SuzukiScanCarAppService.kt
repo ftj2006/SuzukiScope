@@ -2,8 +2,11 @@ package com.suzukiscan.android.auto
 
 import androidx.car.app.CarAppService
 import androidx.car.app.Session
+import androidx.car.app.SessionInfo
 import androidx.car.app.validation.HostValidator
 import androidx.car.app.validation.HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
+import com.suzukiscan.android.AppState
+import com.suzukiscan.android.AutoCrashLog
 
 /**
  * Android Auto entry point (Car App Library, IOT category — vehicle status/monitoring).
@@ -11,7 +14,23 @@ import androidx.car.app.validation.HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
  * release should restrict this to the real Android Auto host signature.
  */
 class SuzukiScanCarAppService : CarAppService() {
-    override fun createHostValidator(): HostValidator = ALLOW_ALL_HOSTS_VALIDATOR
+    override fun onCreate() {
+        super.onCreate()
+        AutoCrashLog.append("Android Auto CarAppService created")
+    }
 
-    override fun onCreateSession(): Session = SuzukiScanCarSession()
+    override fun createHostValidator(): HostValidator {
+        AutoCrashLog.append("Android Auto host validator requested")
+        return ALLOW_ALL_HOSTS_VALIDATOR
+    }
+
+    override fun onCreateSession(): Session {
+        AutoCrashLog.append("Android Auto session requested")
+        return SuzukiScanCarSession()
+    }
+
+    override fun onCreateSession(sessionInfo: SessionInfo): Session {
+        AutoCrashLog.append("Android Auto session requested: $sessionInfo")
+        return SuzukiScanCarSession()
+    }
 }

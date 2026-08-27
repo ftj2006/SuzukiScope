@@ -10,8 +10,14 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Surface
@@ -19,8 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
@@ -30,7 +39,8 @@ import com.suzukiscan.ui.AppScreen
 import com.suzukiscan.ui.ConnectionBar
 import com.suzukiscan.ui.SuzukiScanTheme
 import kotlinx.coroutines.launch
-import java.io.File
+
+private const val CRITICAL_FLASH_MS = 2500L
 
 /**
  * Uses the shared `ui` module's DashboardScreen/DashboardViewModel, backed by the
@@ -44,40 +54,112 @@ class MainActivity : ComponentActivity() {
     ) { granted -> pendingBluetoothConnect?.let { if (granted) it() }; pendingBluetoothConnect = null }
     private var pendingBluetoothConnect: (() -> Unit)? = null
 
+    private val requestWifiSsidPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* best-effort: SSID just won't show if refused, connecting still works */ }
+
     // Devices offered in the "choose Bluetooth device" dialog; empty means the dialog is hidden.
     private var bluetoothDeviceChoices by mutableStateOf<List<BluetoothDevice>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppState.initPersistence(File(filesDir, "field-config.json"))
-        AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
-        AppState.initAlerts(applicationContext)
+        AppState.dashboardViewModel.setExportSink { files -> ExportStore.save(this, files) }
         setContent {
             val viewModel = AppState.dashboardViewModel
             val dtcViewModel = AppState.dtcViewModel
             val connectionStatus by AppState.connectionStatus.collectAsState()
             val wifiConfig by AppState.wifiConfig.collectAsState()
+            val testDataEnabled by viewModel.testDataEnabled.collectAsState()
+            val reconnectPrompt by AppState.reconnectPrompt.collectAsState()
+            var connectionLogsOpen by remember { mutableStateOf(false) }
+            var criticalFlashUntil by remember { mutableStateOf(0L) }
+            LaunchedEffect(Unit) {
+                viewModel.criticalEvents.collect { criticalFlashUntil = System.currentTimeMillis() + CRITICAL_FLASH_MS }
+            }
+            var flashing by remember { mutableStateOf(false) }
+            LaunchedEffect(criticalFlashUntil) {
+                if (criticalFlashUntil == 0L) return@LaunchedEffect
+                flashing = true
+                kotlinx.coroutines.delay(CRITICAL_FLASH_MS)
+                flashing = false
+            }
+            val flashColor by animateColorAsState(
+                if (flashing) androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.35f) else androidx.compose.ui.graphics.Color.Transparent,
+                animationSpec = tween(300),
+                label = "criticalFlash",
+            )
 
             SuzukiScanTheme {
                 Surface(modifier = androidx.compose.ui.Modifier.safeDrawingPadding()) {
                     AppScreen(
                         dashboardViewModel = viewModel,
                         dtcViewModel = dtcViewModel,
-                        onExportCsv = { fileName, csv -> shareCsv(fileName, csv) },
-                        onExportLog = { fileName, log -> shareLog(fileName, log) },
+                        onExportCsv = { files -> exportFiles(files) },
                         connectionBar = {
                             ConnectionBar(
                                 status = connectionStatus,
-                                onConnectWifi = { lifecycleScope.launch { AppState.connectWifi() } },
-                                onConnectBluetooth = { connectToBluetooth() },
+                                onToggleConnection = { lifecycleScope.launch { AppState.toggleConnection() } },
+                                onViewLogs = { connectionLogsOpen = true },
+                                onSelectWifi = {
+                                    AppState.selectWifi()
+                                    if (!AppState.hasWifiSsidPermission()) {
+                                        requestWifiSsidPermission.launch(AppState.wifiSsidPermission())
+                                    }
+                                },
+                                onSelectBluetooth = { connectToBluetooth() },
                                 onUseSimulated = { AppState.useSimulated() },
+                                showTestData = testDataEnabled,
                                 onOpenWifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) },
                                 onOpenBluetoothSettings = { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
                                 wifiHost = wifiConfig.host,
                                 wifiPort = wifiConfig.port,
-                                onSaveWifiConfig = { host, port -> AppState.setWifiConfig(host, port) },
+                                wifiLockedSsid = wifiConfig.lockedSsid,
+                                onSaveWifiConfig = { host, port, lockedSsid -> AppState.setWifiConfig(host, port, lockedSsid) },
                             )
                         },
+                    )
+                }
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxSize().background(flashColor),
+                )
+                if (reconnectPrompt != null) {
+                    AlertDialog(
+                        onDismissRequest = { AppState.dismissReconnectPrompt() },
+                        title = { Text("Reconnect") },
+                        text = { Text(reconnectPrompt.orEmpty()) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                AppState.dismissReconnectPrompt()
+                                lifecycleScope.launch { AppState.autoReconnectFromLastSession() }
+                            }) { Text("Retry") }
+                        },
+                        dismissButton = {
+                            androidx.compose.foundation.layout.Row {
+                                TextButton(onClick = {
+                                    AppState.dismissReconnectPrompt()
+                                    startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+                                }) { Text("Choose Wi-Fi") }
+                                TextButton(onClick = {
+                                    AppState.dismissReconnectPrompt()
+                                    AppState.useSimulated()
+                                }) { Text("Use test data") }
+                            }
+                        },
+                    )
+                }
+                if (connectionLogsOpen) {
+                    AlertDialog(
+                        onDismissRequest = { connectionLogsOpen = false },
+                        title = { Text("Connection logs") },
+                        text = {
+                            Text(
+                                viewModel.connectionLogsForExport().joinToString("\n\n") { log ->
+                                    "Connection ${log.id}\n${log.contents}"
+                                }.ifEmpty { "No connection logs recorded." },
+                                modifier = androidx.compose.ui.Modifier.verticalScroll(rememberScrollState()),
+                            )
+                        },
+                        confirmButton = { TextButton(onClick = { connectionLogsOpen = false }) { Text("Close") } },
                     )
                 }
                 if (bluetoothDeviceChoices.isNotEmpty()) {
@@ -95,7 +177,7 @@ class MainActivity : ComponentActivity() {
                                         supportingContent = { Text(device.address) },
                                         modifier = androidx.compose.ui.Modifier.clickable {
                                             bluetoothDeviceChoices = emptyList()
-                                            lifecycleScope.launch { AppState.connectBluetooth(BluetoothSppTransport(device)) }
+                                            AppState.selectBluetooth(BluetoothSppTransport(device))
                                         },
                                     )
                                 }
@@ -114,7 +196,7 @@ class MainActivity : ComponentActivity() {
                 devices.isEmpty() -> AppState.setStatus(
                     "No paired Bluetooth devices found — pair your ELM327 adapter in Android Bluetooth settings first",
                 )
-                devices.size == 1 -> lifecycleScope.launch { AppState.connectBluetooth(BluetoothSppTransport(devices.first())) }
+                devices.size == 1 -> AppState.selectBluetooth(BluetoothSppTransport(devices.first()))
                 else -> bluetoothDeviceChoices = devices
             }
         }
@@ -129,25 +211,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun shareCsv(fileName: String, csv: String) {
-        val file = File(cacheDir, fileName).apply { writeText(csv) }
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Export live-data log"))
-    }
-
-    private fun shareLog(fileName: String, log: String) {
-        val file = File(cacheDir, fileName).apply { writeText(log) }
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Export connection log"))
+    private fun exportFiles(files: List<com.suzukiscan.ui.DashboardViewModel.ExportFile>) {
+        startActivity(ExportStore.openFolderIntent(this))
     }
 }

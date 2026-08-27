@@ -1,0 +1,10 @@
+pj-viewer connects to an ELM327 OBD-II adapter (Wi-Fi or Bluetooth) to read live diagnostic data from your Suzuki vehicle's CAN bus.
+
+Features:
+- Configurable live gauges (oil/water temperature, boost pressure, RPM, throttle, speed, and more)
+- Warning/critical thresholds with colour-coded gauges and alerts
+- Session logging with CSV export
+- Diagnostic trouble code (DTC) reading
+- Android Auto support with a dashboard view for use while driving
+
+Requires a compatible ELM327 Wi-Fi or Bluetooth adapter plugged into your vehicle's OBD-II port.

@@ -16,3 +16,14 @@ fun niceScaleMax(value: Double): Double {
     val step = 10.0.pow(floor(log10(value)) - 1)
     return ceil(value / step) * step
 }
+
+/**
+ * Mirrors [niceScaleMax] but rounds down for a gauge's bottom-of-scale, at a step size scaled
+ * to the value's magnitude — e.g. -6420 -> -6500 (nearest 100), 105 -> 100 (nearest 10).
+ */
+fun niceScaleMin(value: Double): Double {
+    if (value == 0.0) return value
+    val magnitude = kotlin.math.abs(value)
+    val step = 10.0.pow(floor(log10(magnitude)) - 1)
+    return floor(value / step) * step
+}

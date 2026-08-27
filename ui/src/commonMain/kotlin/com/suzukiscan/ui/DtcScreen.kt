@@ -41,18 +41,39 @@ fun DtcScreen(
     val scope = rememberCoroutineScope()
     val codes by viewModel.codes.collectAsState()
     val status by viewModel.status.collectAsState()
+    val unresponsiveModules by viewModel.unresponsiveModules.collectAsState()
+    val probeStatus by viewModel.probeStatus.collectAsState()
+    var showUnresponsive by remember { mutableStateOf(false) }
+    val visibleModules = moduleOptions.filter { showUnresponsive || DtcViewModel.moduleKey(it) !in unresponsiveModules }
     var selectedIndex by remember { mutableStateOf(0) }
     var menuOpen by remember { mutableStateOf(false) }
-    val selected = moduleOptions.getOrNull(selectedIndex)
+    val selected = visibleModules.getOrNull(selectedIndex)
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Checkbox(
+                checked = showUnresponsive,
+                onCheckedChange = { showUnresponsive = it; selectedIndex = 0 },
+            )
+            Text(
+                "Show ${moduleOptions.size - visibleModules.size} unresponsive module(s)",
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                modifier = Modifier.weight(1f),
+            )
+            androidx.compose.material3.TextButton(onClick = { scope.launch { viewModel.probeModules(moduleOptions) } }) {
+                Text("Test modules")
+            }
+        }
+        probeStatus?.let {
+            Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(bottom = 4.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = { menuOpen = true }, modifier = Modifier.weight(1f)) {
                 Text(selected?.label ?: "No modules available")
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 Column(modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
-                    moduleOptions.forEachIndexed { index, option ->
+                    visibleModules.forEachIndexed { index, option ->
                         DropdownMenuItem(text = { Text(option.label) }, onClick = { selectedIndex = index; menuOpen = false })
                     }
                 }

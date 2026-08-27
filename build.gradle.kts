@@ -7,4 +7,5 @@ plugins {
     id("org.jetbrains.compose") version "1.7.0" apply false
     id("com.android.application") version "8.5.0" apply false
     id("com.android.library") version "8.5.0" apply false
+    id("com.github.triplet.play") version "3.12.1" apply false
 }

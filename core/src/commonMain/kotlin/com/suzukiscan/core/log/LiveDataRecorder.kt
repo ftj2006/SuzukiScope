@@ -30,9 +30,13 @@ class LiveDataRecorder {
     }
 
     /** CSV export — plain columns so it opens directly in Excel/Sheets/etc. or re-imports elsewhere. */
-    fun toCsv(labelFor: (String) -> String = { it }, unitFor: (String) -> String = { "" }): String {
+    fun toCsv(
+        labelFor: (String) -> String = { it },
+        unitFor: (String) -> String = { "" },
+        readings: List<Reading> = history,
+    ): String {
         val sb = StringBuilder("timestamp_ms,field_id,label,value,unit\n")
-        for (r in history) {
+        for (r in readings) {
             sb.append(r.timestampMs).append(',')
                 .append(r.fieldId).append(',')
                 .append(labelFor(r.fieldId)).append(',')

@@ -3,6 +3,7 @@ package com.suzukiscan.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,6 +11,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -24,8 +27,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    onExport: (fileName: String, csv: String) -> Unit,
-    onExportLog: (fileName: String, log: String) -> Unit = { _, _ -> },
+    onExport: (files: List<DashboardViewModel.ExportFile>) -> Unit,
     connectionBar: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -39,8 +41,7 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            connectionBar()
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            Box(Modifier.weight(1f)) { connectionBar() }
             // Plain (unfilled) until actually recording, so it doesn't look pre-selected when idle.
             if (isLogging) {
                 FilledIconButton(
@@ -64,11 +65,8 @@ fun DashboardScreen(
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }
-            IconButton(onClick = { onExportLog(viewModel.exportLogFileName(), viewModel.exportIoLog()) }) {
-                Text("\uD83D\uDCCB") // clipboard "connection log" icon
-            }
-            IconButton(onClick = { onExport(viewModel.exportCsvFileName(), viewModel.exportCsv()) }) {
-                Text("\uD83D\uDCBE") // floppy-disk "export/save" icon
+            IconButton(onClick = { onExport(emptyList()) }) {
+                androidx.compose.material3.Icon(Icons.Outlined.FileDownload, contentDescription = "Export")
             }
         }
         LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 160.dp), modifier = Modifier.fillMaxSize()) {
@@ -80,11 +78,12 @@ fun DashboardScreen(
                     min = field.gaugeMin,
                     max = field.gaugeMax,
                     peak = peaks[field.id],
-                    cautionThreshold = field.cautionThreshold,
                     warningThreshold = field.warningThreshold,
+                    criticalThreshold = field.criticalThreshold,
                     decimals = field.decimals,
                 )
             }
         }
     }
+
 }

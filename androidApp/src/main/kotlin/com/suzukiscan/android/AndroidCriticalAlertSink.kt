@@ -8,11 +8,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import com.suzukiscan.core.field.FieldDefinition
-import com.suzukiscan.ui.WarningAlertSink
+import com.suzukiscan.ui.CriticalAlertSink
 
-/** Vibration + short tone when a gauge crosses its warning threshold — meant to be noticeable
+/** Vibration + short tone when a gauge crosses its critical threshold — meant to be noticeable
  * without needing to look at the screen while driving. */
-class AndroidWarningAlertSink(context: Context) : WarningAlertSink {
+class AndroidCriticalAlertSink(context: Context) : CriticalAlertSink {
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
@@ -22,7 +22,7 @@ class AndroidWarningAlertSink(context: Context) : WarningAlertSink {
         }
     private val toneGenerator = runCatching { ToneGenerator(AudioManager.STREAM_ALARM, 80) }.getOrNull()
 
-    override fun onWarning(field: FieldDefinition, value: Double) {
+    override fun onCritical(field: FieldDefinition, value: Double) {
         vibrator?.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
         toneGenerator?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 200)
     }

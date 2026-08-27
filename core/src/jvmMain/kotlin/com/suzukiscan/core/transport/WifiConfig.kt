@@ -9,6 +9,8 @@ import java.io.File
 data class WifiConfig(
     val host: String = WifiTransport.DEFAULT_HOST,
     val port: Int = WifiTransport.DEFAULT_PORT,
+    /** If set, connecting over Wi-Fi is refused unless the phone is currently joined to this SSID. */
+    val lockedSsid: String? = null,
 ) {
     companion object {
         fun load(file: File): WifiConfig =

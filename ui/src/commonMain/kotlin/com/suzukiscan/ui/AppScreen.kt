@@ -2,6 +2,12 @@ package com.suzukiscan.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -23,8 +29,7 @@ import com.suzukiscan.core.field.FieldCatalogLoader
 fun AppScreen(
     dashboardViewModel: DashboardViewModel,
     dtcViewModel: DtcViewModel,
-    onExportCsv: (fileName: String, csv: String) -> Unit,
-    onExportLog: (fileName: String, log: String) -> Unit = { _, _ -> },
+    onExportCsv: (files: List<DashboardViewModel.ExportFile>) -> Unit,
     connectionBar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -39,13 +44,29 @@ fun AppScreen(
 
     Column(modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tab) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Dashboard") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("History") })
-            Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Configure fields") })
-            Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text("DTC") })
+            Tab(
+                selected = tab == 0,
+                onClick = { tab = 0 },
+                icon = { Icon(Icons.Outlined.Dashboard, contentDescription = "Dashboard") },
+            )
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                icon = { Icon(Icons.Outlined.History, contentDescription = "History") },
+            )
+            Tab(
+                selected = tab == 2,
+                onClick = { tab = 2 },
+                icon = { Icon(Icons.Outlined.Tune, contentDescription = "Configure fields") },
+            )
+            Tab(
+                selected = tab == 3,
+                onClick = { tab = 3 },
+                icon = { Icon(Icons.Outlined.Warning, contentDescription = "Diagnostic trouble codes") },
+            )
         }
         when (tab) {
-            0 -> DashboardScreen(dashboardViewModel, onExportCsv, onExportLog, connectionBar, Modifier.fillMaxSize())
+            0 -> DashboardScreen(dashboardViewModel, onExportCsv, connectionBar, Modifier.fillMaxSize())
             1 -> HistoryScreen(dashboardViewModel, Modifier.fillMaxSize())
             2 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize())
             else -> DtcScreen(dtcViewModel, moduleOptionsFrom(fields), Modifier.fillMaxSize())

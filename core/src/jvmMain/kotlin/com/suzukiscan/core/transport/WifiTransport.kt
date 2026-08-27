@@ -1,8 +1,11 @@
 package com.suzukiscan.core.transport
 
+import java.io.BufferedInputStream
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Plain TCP transport for ELM327 Wi-Fi adapters, matching the Android app's
@@ -15,36 +18,51 @@ class WifiTransport(
 ) : Transport {
     override val name: String = "wifi://$host:$port"
     private var socket: Socket? = null
+    private var input: BufferedInputStream? = null
 
     override suspend fun connect() {
-        val s = Socket()
-        s.connect(InetSocketAddress(host, port), connectTimeoutMs)
-        socket = s
+        withContext(Dispatchers.IO) {
+            val s = Socket()
+            s.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            // Nagle's algorithm can add tens of ms of pure waiting to every single
+            // request/response round trip on a short request-then-wait-for-reply protocol like
+            // this one — disabling it is a meaningful, free latency win for live-data polling.
+            s.tcpNoDelay = true
+            socket = s
+            input = BufferedInputStream(s.getInputStream())
+        }
     }
 
     override suspend fun disconnect() {
-        socket?.close()
-        socket = null
+        withContext(Dispatchers.IO) {
+            socket?.close()
+            socket = null
+            input = null
+        }
     }
 
     override suspend fun write(bytes: ByteArray) {
-        val s = socket ?: throw IOException("Not connected")
-        s.getOutputStream().write(bytes)
-        s.getOutputStream().flush()
+        withContext(Dispatchers.IO) {
+            val s = socket ?: throw IOException("Not connected")
+            s.getOutputStream().write(bytes)
+            s.getOutputStream().flush()
+        }
     }
 
     override suspend fun readUntil(terminator: Byte, timeoutMs: Long): ByteArray {
-        val s = socket ?: throw IOException("Not connected")
-        s.soTimeout = timeoutMs.toInt()
-        val input = s.getInputStream()
-        val buffer = ArrayList<Byte>()
-        while (true) {
-            val b = input.read()
-            if (b == -1) break
-            buffer.add(b.toByte())
-            if (b.toByte() == terminator) break
+        return withContext(Dispatchers.IO) {
+            val s = socket ?: throw IOException("Not connected")
+            val stream = input ?: throw IOException("Not connected")
+            s.soTimeout = timeoutMs.toInt()
+            val buffer = ArrayList<Byte>()
+            while (true) {
+                val b = stream.read()
+                if (b == -1) break
+                buffer.add(b.toByte())
+                if (b.toByte() == terminator) break
+            }
+            buffer.toByteArray()
         }
-        return buffer.toByteArray()
     }
 
     override val isConnected: Boolean get() = socket?.isConnected == true

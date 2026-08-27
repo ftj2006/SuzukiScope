@@ -18,6 +18,13 @@ class Elm327ClientTest {
     }
 
     @Test
+    fun parseHexBytesStripsCanLineLabels() {
+        val bytes = Elm327Client.parseHexBytes("0D2\r0:6100FF\r1:1234\r2:FFFFFFFFFFFFFFFF\rF:ABCD\r>")
+        assertEquals(listOf<Byte>(0x61, 0x00, 0xFF.toByte(), 0x12, 0x34) +
+            List(8) { 0xFF.toByte() } + listOf<Byte>(0xAB.toByte(), 0xCD.toByte()), bytes.toList())
+    }
+
+    @Test
     fun sendCommandRoundTripsThroughLoopbackTransport() = kotlinx.coroutines.test.runTest {
         val transport = com.suzukiscan.core.transport.LoopbackTransport { bytes ->
             val cmd = bytes.decodeToString().trim()

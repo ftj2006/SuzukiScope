@@ -2,6 +2,16 @@ plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("plugin.compose")
+    id("com.github.triplet.play")
+}
+
+play {
+    val credentialsPath = providers.environmentVariable("PLAY_SERVICE_ACCOUNT_JSON")
+        .orNull
+        ?: "/home/paul/.keys/pj-sz-vuewer-cb144e53c539.json"
+    serviceAccountCredentials.set(file(credentialsPath))
+    track.set("internal")
+    defaultToAppBundles.set(true)
 }
 
 android {
@@ -30,11 +40,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.suzukiscan.android"
+        applicationId = "za.co.pj.szviewer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.5.0"
+        versionCode = 38
+        versionName = "1.5.28"
     }
 
     buildTypes {

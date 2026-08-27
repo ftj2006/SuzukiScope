@@ -25,11 +25,17 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     fun setRecordEnabled(id: String, recordEnabled: Boolean) {
         _fields[id]?.let { _fields[id] = it.copy(recordEnabled = recordEnabled) }
     }
-    fun setThresholds(id: String, cautionThreshold: Double?, warningThreshold: Double?) {
-        _fields[id]?.let { _fields[id] = it.copy(cautionThreshold = cautionThreshold, warningThreshold = warningThreshold) }
+    fun setThresholds(id: String, warningThreshold: Double?, criticalThreshold: Double?) {
+        _fields[id]?.let { _fields[id] = it.copy(warningThreshold = warningThreshold, criticalThreshold = criticalThreshold) }
     }
     fun setGaugeMax(id: String, gaugeMax: Double) {
         _fields[id]?.let { _fields[id] = it.copy(gaugeMax = gaugeMax) }
+    }
+    fun setGaugeMin(id: String, gaugeMin: Double) {
+        _fields[id]?.let { _fields[id] = it.copy(gaugeMin = gaugeMin) }
+    }
+    fun setVerifiedNoData(id: String, noData: Boolean) {
+        _fields[id]?.let { _fields[id] = it.copy(verifiedNoData = noData) }
     }
     fun get(id: String): FieldDefinition? = _fields[id]
 
@@ -72,8 +78,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 enabled = persisted.enabled,
                 recordEnabled = persisted.recordEnabled,
                 gaugeMax = persisted.gaugeMax,
-                cautionThreshold = persisted.cautionThreshold,
                 warningThreshold = persisted.warningThreshold,
+                criticalThreshold = persisted.criticalThreshold,
+                verifiedNoData = persisted.verifiedNoData,
             ) ?: persisted
         }
         for ((id, field) in _fields) {
@@ -104,10 +111,10 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     unit = "\u00B0C",
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 10, byteLength = 1, offset = -40.0),
-                    gaugeMin = -40.0,
-                    gaugeMax = 120.0,
-                    cautionThreshold = 110.0,
-                    warningThreshold = 120.0,
+                    gaugeMin = 0.0,
+                    gaugeMax = 110.0,
+                    warningThreshold = 110.0,
+                    criticalThreshold = 120.0,
                 ),
                 FieldDefinition(
                     id = "engine.water_temp",
@@ -115,8 +122,8 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     unit = "\u00B0C",
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 44, byteLength = 1, offset = -40.0),
-                    gaugeMin = -40.0,
-                    gaugeMax = 150.0,
+                    gaugeMin = 0.0,
+                    gaugeMax = 110.0,
                 ),
                 FieldDefinition(
                     id = "engine.boost_pressure",
@@ -137,8 +144,8 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     decode = DecodeSpec(skipBytes = 37, byteLength = 2, scale = 0.25),
                     gaugeMin = 0.0,
                     gaugeMax = 7000.0,
-                    cautionThreshold = 6000.0,
-                    warningThreshold = 6500.0,
+                    warningThreshold = 6000.0,
+                    criticalThreshold = 6500.0,
                     decimals = 0,
                 ),
                 FieldDefinition(

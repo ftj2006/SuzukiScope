@@ -51,16 +51,26 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         cleanResponse(rawText)
     }
 
-    /** Standard reset + quiet init sequence. */
+    /** Common ELM327 setup used by the original SZ Viewer before selecting a bus protocol. */
     suspend fun reset() {
-        sendCommand("ATZ", timeoutMs = 3000)
-        sendCommand("ATE0") // echo off
-        sendCommand("ATL0") // linefeeds off
-        sendCommand("ATS0") // spaces off (we still parse hex-pair by hex-pair regardless)
+        sendCommand("ATD")
+        sendCommand("ATE0")
+        sendCommand("ATL0")
+        sendCommand("ATS0")
+        sendCommand("ATH0")
+        sendCommand("ATD0")
+        sendCommand("ATAL")
+        sendCommand("ATIB10")
+        sendCommand("ATKW0")
+        sendCommand("ATSW00")
+        sendCommand("ATAT0")
+        sendCommand("ATCAF1")
+        sendCommand("ATCFC1")
+        sendCommand("ATFCSM0")
     }
 
     suspend fun initProtocol(protocol: Elm327Protocol) {
-        sendCommand("ATSP${protocol.atSpValue}")
+        sendCommand("ATTP${protocol.atSpValue}")
     }
 
     /** ISO 14230/KWP: set the physical/functional target header ELM327 will use for the next request. */
@@ -68,10 +78,24 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATSH" + headerBytes.joinToString("") { "%02X".format(it) })
     }
 
+    suspend fun setCanHeader(targetAddress: Int) {
+        sendCommand("ATSH%03X".format(targetAddress and 0x7FF))
+    }
+
+    suspend fun configureCan(targetAddress: Int) {
+        val requestId = targetAddress and 0x7FF
+        sendCommand("ATSH%03X".format(requestId))
+        sendCommand("ATCRA%03X".format((requestId + 8) and 0x7FF))
+        sendCommand("ATFCSH%03X".format(requestId))
+        sendCommand("ATFCSD300000")
+        sendCommand("ATFCSM1")
+        sendCommand("ATST10")
+    }
+
     /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */
-    suspend fun requestHex(payload: ByteArray): ByteArray {
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500): ByteArray {
         val hex = payload.joinToString("") { "%02X".format(it) }
-        val response = sendCommand(hex)
+        val response = sendCommand(hex, timeoutMs)
         return parseHexBytes(response)
     }
 
@@ -87,8 +111,17 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
 
         /** Parses whitespace-separated hex byte pairs (ignoring any trailing non-hex noise). */
         internal fun parseHexBytes(text: String): ByteArray {
-            val hexOnly = text.filter { it.isDigit() || it.uppercaseChar() in 'A'..'F' }
-            require(hexOnly.length % 2 == 0) { "Odd number of hex digits in response: '$text'" }
+            val response = text.trim()
+            require(response != "NO DATA" && response != "ERROR" && response != "?" && response != "STOPPED") {
+                "ELM327 rejected request: $response"
+            }
+            val canChunks = Regex("(?:^|[\\s\\r\\n])[0-9A-Fa-f]:([0-9A-Fa-f]+)(?=\\s|$)")
+                .findAll(response)
+                .map { it.groupValues[1] }
+                .toList()
+            val payload = if (canChunks.isNotEmpty()) canChunks.joinToString("") else response
+            val hexOnly = payload.filter { it.isDigit() || it.uppercaseChar() in 'A'..'F' }
+            require(hexOnly.length % 2 == 0) { "Odd number of hex digits in response: '$response'" }
             return ByteArray(hexOnly.length / 2) { i ->
                 hexOnly.substring(i * 2, i * 2 + 2).toInt(16).toByte()
             }
