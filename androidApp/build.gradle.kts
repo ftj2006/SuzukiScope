@@ -16,7 +16,7 @@ play {
 
 android {
     namespace = "com.suzukiscan.android"
-    compileSdk = 35
+    compileSdk = 36
 
     // Committed so local and CI builds always sign with the same key — otherwise every CI run
     // (which has no persisted ~/.android/debug.keystore) generates a new one, and installing a
@@ -42,9 +42,9 @@ android {
     defaultConfig {
         applicationId = "za.co.pj.szviewer"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 38
-        versionName = "1.5.28"
+        targetSdk = 36
+        versionCode = 39
+        versionName = "1.5.29"
     }
 
     buildTypes {
