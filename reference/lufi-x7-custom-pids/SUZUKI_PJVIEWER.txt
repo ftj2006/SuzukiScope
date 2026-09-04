@@ -1,0 +1,87 @@
+; Best-effort approximation of a Lufi USERPID custom-PID file for pj-viewer's default
+; Suzuki engine gauges. See reference/LUFI_X7_SETUP_GUIDE.md for the full explanation,
+; confidence caveats, and encoding notes (this file is plain UTF-8 text; if the X7
+; rejects it, try re-saving as GBK or UTF-16 LE before giving up on the format).
+;
+; All entries share the same request (Suzuki's proprietary ReadDataByLocalIdentifier,
+; local ID 0x00) - only the byte offset within the shared response differs per field,
+; hence the "Offset" field below (bytes to skip, 0-indexed, before the byte(s) the
+; Equation calls A/B). If your X7's actual custom-PID format doesn't have an "Offset"/
+; "Skip" field under a different name, this whole per-field-offset approach won't work
+; as a single flat file - see the guide's §4/§5 for the fallback (test Oil Temperature
+; alone first; if it reads the wrong data, the format likely needs a different field
+; name for the offset, or doesn't support one at all).
+;
+; START WITH [Oil Temperature] ONLY, confirm it reads a sane value, THEN add the rest -
+; if the byte numbering is off, every entry below needs the same fixed shift, so getting
+; one right first tells you how to fix all of them at once.
+
+[Oil Temperature]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 8
+Equation: A-40
+Unit: C
+Min: -40
+Max: 150
+
+[Water Temperature]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 42
+Equation: A-40
+Unit: C
+Min: -40
+Max: 150
+
+[Boost Pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 147
+Equation: A*0.01
+Unit: bar
+Min: 0
+Max: 1.6
+
+[Engine RPM]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 35
+Equation: (A*256+B)*0.25
+Unit: rpm
+Min: 0
+Max: 7000
+
+[Throttle Position]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 64
+Equation: A*0.39215686274509803
+Unit: %
+Min: 0
+Max: 100
+
+[Speed]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 40
+Equation: A
+Unit: km/h
+Min: 0
+Max: 260
+
+[Battery Voltage]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 97
+Equation: (A*256+B)*0.001
+Unit: V
+Min: 9
+Max: 16

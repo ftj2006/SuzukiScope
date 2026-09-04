@@ -1,0 +1,8 @@
+"Name","ShortName","ModeAndPID","Equation","Min Value","Max Value","Units","OBD Header"
+"Oil Temperature","OilTemp","2100","I-40",-40,150,"C","7E0"
+"Water Temperature","WaterTemp","2100","A-40",-40,150,"C","7E0"
+"Boost Pressure","Boost","2100","A*0.01",0,1.6,"bar","7E0"
+"Engine RPM","RPM","2100","(A*256+B)*0.25",0,7000,"rpm","7E0"
+"Throttle Position","Throttle","2100","A*0.39215686274509803",0,100,"%","7E0"
+"Speed","Speed","2100","A",0,260,"km/h","7E0"
+"Battery Voltage","Battery","2100","(A*256+B)*0.001",9,16,"V","7E0"

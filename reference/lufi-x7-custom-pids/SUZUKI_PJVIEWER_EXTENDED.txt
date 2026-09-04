@@ -1,0 +1,3635 @@
+; Best-effort EXTENDED Lufi USERPID file, generated from the full Suzuki catalog.
+; See LUFI_X7_SETUP_GUIDE.md for the Offset-field caveat and encoding notes - this
+; is plain UTF-8; re-encode to GBK/UTF-16 if your firmware rejects it.
+; CAN-based, source-verified fields only (K-Line modules excluded - see the guide).
+; Test a handful of entries at a time, not the whole file at once.
+
+[Pump motor voltage]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 13
+Equation: A*0.0784313725490196
+Unit: volt
+Min: 0.0
+Max: 20.0
+
+[Steering angle offset]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 14
+Equation: A*0.5-64.0
+Unit: degreeAngle
+Min: -64.0
+Max: 63.5
+
+[Brake booster pressure sensor]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 16
+Equation: A*0.5
+Unit: kpa
+Min: 0.0
+Max: 127.5
+
+[Master cylinder pressure]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 17
+Equation: A*0.1-2.0
+Unit: mpa
+Min: -2.0
+Max: 23.5
+
+[G sensor (lateral)]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 18
+Equation: A*0.02-2.56
+Unit: G
+Min: -2.56
+Max: 2.54
+
+[Yaw rate sensor]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 19
+Equation: (A*256+B*1)*0.05-1638.4
+Unit: degreeS
+Min: -1638.4
+Max: 1638.35
+
+[Pump motor voltage (abs)]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 13
+Equation: A*0.0803921568627451
+Unit: volt
+Min: 0.0
+Max: 20.5
+
+[Master cylinder pressure (abs)]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 17
+Equation: A*0.1-2.0
+Unit: mpa
+Min: -2.0
+Max: 23.5
+
+[G sensor (lateral) (abs)]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 18
+Equation: A*0.02-2.56
+Unit: G
+Min: -2.56
+Max: 2.54
+
+[Yaw rate sensor (abs)]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 19
+Equation: (A*256+B*1)*0.05-1638.4
+Unit: degreeS
+Min: -1638.4
+Max: 1638.35
+
+[Steering angle]
+Header: 261
+Mode: 21
+PID: 00
+Offset: 24
+Equation: SIGNED((A*256+B*1))
+Unit: degreeAngle
+Min: -32768.0
+Max: 32767.0
+
+[Steering angle sensor]
+Header: 784
+Mode: 21
+PID: 02
+Offset: 0
+Equation: SIGNED((A*256+B*1))*0.04379406109805597
+Unit: degreeAngle
+Min: -1435.0438
+Max: 1435.0
+
+[Yaw sensor]
+Header: 784
+Mode: 21
+PID: 02
+Offset: 2
+Equation: SIGNED(A)*0.5898425196850393
+Unit: degreeS
+Min: -75.4998
+Max: 74.91
+
+[Pressure sensor]
+Header: 784
+Mode: 21
+PID: 02
+Offset: 3
+Equation: SIGNED((A*256+B*1))*0.999755851924192
+Unit: kpa
+Min: -32759.9998
+Max: 32759.0
+
+[Lateral acceleration]
+Header: 784
+Mode: 21
+PID: 02
+Offset: 5
+Equation: SIGNED((A*256+B*1))*9.99755851924192
+Unit: G
+Min: -327599.9976
+Max: 327590.0
+
+[Longitudinal sensor]
+Header: 784
+Mode: 21
+PID: 02
+Offset: 7
+Equation: SIGNED(A)*0.010236220472440945
+Unit: G
+Min: -1.3102
+Max: 1.3
+
+[Engine torque]
+Header: 784
+Mode: 21
+PID: 03
+Offset: 2
+Equation: SIGNED((A*256+B*1))*0.07379375591296121
+Unit: 
+Min: -2418.0738
+Max: 2418.0
+
+[Valve feed]
+Header: 784
+Mode: 21
+PID: 14
+Offset: 2
+Equation: A*0.1+5.0
+Unit: volt
+Min: 5.0
+Max: 30.5
+
+[Battery voltage (controller)]
+Header: 79B
+Mode: 21
+PID: 08
+Offset: 0
+Equation: A*0.0784313725490196
+Unit: volt
+Min: 0.0
+Max: 20.0
+
+[Battery voltage (camera)]
+Header: 79B
+Mode: 21
+PID: 08
+Offset: 1
+Equation: A*0.0784313725490196
+Unit: volt
+Min: 0.0
+Max: 20.0
+
+[Steering wheel angle]
+Header: 79B
+Mode: 21
+PID: 08
+Offset: 5
+Equation: SIGNED((A*256+B*1))
+Unit: degreeAngle
+Min: -32768.0
+Max: 32767.0
+
+[Leveling actuator]
+Header: 276
+Mode: 21
+PID: 08
+Offset: 2
+Equation: A*0.39199999999999996
+Unit: percent
+Min: 0.0
+Max: 99.96
+
+[Rear height sensor]
+Header: 276
+Mode: 21
+PID: 08
+Offset: 11
+Equation: A*19.6
+Unit: mVolt
+Min: 0.0
+Max: 4998.0
+
+[Leveling actuator (alc)]
+Header: 276
+Mode: 21
+PID: 08
+Offset: 2
+Equation: A*0.39199999999999996
+Unit: percent
+Min: 0.0
+Max: 99.96
+
+[Rear height sensor (alc)]
+Header: 276
+Mode: 21
+PID: 08
+Offset: 11
+Equation: A*19.6
+Unit: mVolt
+Min: 0.0
+Max: 4998.0
+
+[Pressure control solenoid]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 9
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Input shaft]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Output shaft]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Tc Lock Duty]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 10
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[O/D]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 114
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[L position switch]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 113
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid A control]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B control]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid E control]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Timing solenoid control]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid A monitor]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B monitor]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid E monitor]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Timing solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Unknown (04)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 4
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Secondary pressure]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 9
+Equation: A*0.025490196078431372-0.1
+Unit: mpa
+Min: -0.1
+Max: 6.4
+
+[Unknown (0B)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 11
+Equation: A*0.039999999999999994-5.12
+Unit: 
+Min: -5.12
+Max: 5.08
+
+[Unknown (0F)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 15
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Unknown (10)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 16
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Unknown (11)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 17
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Unknown (12)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 18
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Input shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Output shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Voltage]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 6
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[At Temp]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 8
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Speed]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 22
+Equation: A
+Unit: kmh
+Min: 0.0
+Max: 255.0
+
+[Throttle]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 25
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Engine Rpm]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 27
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Engine Temp]
+Header: 7E1
+Mode: 21
+PID: 01
+Offset: 29
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Primary oil pressure]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 15
+Equation: A*0.025
+Unit: mpa
+Min: 0.0
+Max: 6.375
+
+[Secondary oil pressure]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 17
+Equation: (A*256+B*1)*3.9063096055542843
+Unit: mpa
+Min: 0.0
+Max: 256000.0
+
+[Lock up solenoid control]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 50
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Lock up solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 52
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Line pressure solenoid control]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 54
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Line pressure solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 56
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Secondary solenoid control]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 62
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Secondary solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 64
+Equation: (A*256+B*1)*1.171875028610666
+Unit: mA
+Min: 0.0
+Max: 76798.83
+
+[Primary pulley speed]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 8
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Secondary pulley speed]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 10
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Gear actual ratio]
+Header: 7E1
+Mode: 21
+PID: 03
+Offset: 29
+Equation: (A*256+B*1)*3.906309605554284
+Unit: 
+Min: 0.0
+Max: 256000.0
+
+[Line Pressure]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 10
+Equation: A*0.025
+Unit: mpa
+Min: 0.0
+Max: 6.375
+
+[Slope sensor]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 13
+Equation: (A*256+B*1)*0.01-327.68
+Unit: degreeAngle
+Min: -327.68
+Max: 327.67
+
+[Output shaft speed]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 15
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Line pressure solenoid control (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 25
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Primary pressure solenoid control]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 27
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Low brake solenoid control]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 32
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[High clutch & reverse brake (HC & RB) solenoid control]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 34
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Lock up solenoid control (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 36
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Line pressure solenoid monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 40
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Primary pressure solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 42
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Low brake solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 46
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[High clutch & reverse brake (HC & RB) solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 48
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Throttle-2]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 59
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Gear actual ratio (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 72
+Equation: (A*256+B*1)*0.001
+Unit: 
+Min: 0.0
+Max: 65.535
+
+[Speed-2]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 88
+Equation: A
+Unit: kmh
+Min: 0.0
+Max: 255.0
+
+[Speed-3 ??]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 106
+Equation: A
+Unit: kmh
+Min: 0.0
+Max: 255.0
+
+[Throttle-3]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 107
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Pulley ratio]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 95
+Equation: (A*256+B*1)*0.001
+Unit: 
+Min: 0.0
+Max: 65.535
+
+[Turbine speed]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Primary pulley speed (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Secondary pulley speed (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 4
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Lock up solenoid monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 50
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Total ratio-2 (Target?)]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 93
+Equation: (A*256+B*1)*0.001
+Unit: 
+Min: 0.0
+Max: 65.535
+
+[Slip Data]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 97
+Equation: A-128.0
+Unit: rpm
+Min: -128.0
+Max: 127.0
+
+[State?]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 90
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[L switch ?]
+Header: 7E1
+Mode: 21
+PID: 04
+Offset: 91
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Selector Position Sensor #1]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 7
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[Selector Position Sensor #2]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 9
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[Line pressure solenoid control (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 16
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid A control (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 18
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid B control (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 20
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid C control]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 22
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid D control]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 25
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[TCC solenoid control]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 27
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Electro magnetic oil pump solenoid duty]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 31
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Line pressure solenoid monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 32
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid A monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 34
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid B monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 36
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid C monitor]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 39
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid D monitor]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 41
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[TCC solenoid monitor]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 43
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Accelerator position (effective)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 51
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Vehicle speed (Engine CM)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 107
+Equation: A
+Unit: kmh
+Min: 0.0
+Max: 255.0
+
+[Input shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Output shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Accelerator position (actual)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 50
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Shift solenoid A control (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B control (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid A monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 119
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 05
+Offset: 119
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Input shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Output shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Clutch position]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 5
+Equation: (A*256+B*1)
+Unit: 
+Min: 0.0
+Max: 65535.0
+
+[Select position]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 7
+Equation: (A*256+B*1)
+Unit: 
+Min: 0.0
+Max: 65535.0
+
+[Shift position]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 9
+Equation: (A*256+B*1)
+Unit: 
+Min: 0.0
+Max: 65535.0
+
+[Oil pressure]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 13
+Equation: (A*256+B*1)*3.92156862745098
+Unit: mpa
+Min: 0.0
+Max: 257000.0
+
+[Clutch solenoid control]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 16
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Select solenoid control]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 18
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid #1 (odd)control]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 20
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Shift solenoid #2 (even)control]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 22
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Outside air temperature]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 58
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Barometric pressure]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 59
+Equation: A
+Unit: kpa
+Min: 0.0
+Max: 255.0
+
+[Clutch temperature]
+Header: 7E1
+Mode: 21
+PID: 06
+Offset: 101
+Equation: A
+Unit: celsius
+Min: 0.0
+Max: 255.0
+
+[Pressure control solenoid A]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 9
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Pressure control solenoid B]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 11
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Pressure control solenoid C]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 12
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Input shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 0
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Output shaft (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 2
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Tc Lock Duty (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 10
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Forced 4 Position (O/D OFF)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 114
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid A control (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B control (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid E control (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 116
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid A monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid B monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Shift solenoid E monitor (at)]
+Header: 7E1
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[1st,3rd actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 7
+Equation: (A*256+B*1)*0.0254
+Unit: mm
+Min: 0.0
+Max: 1664.589
+
+[6th actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 9
+Equation: (A*256+B*1)*0.0254
+Unit: mm
+Min: 0.0
+Max: 1664.589
+
+[2nd/4th actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 11
+Equation: (A*256+B*1)*0.0254
+Unit: mm
+Min: 0.0
+Max: 1664.589
+
+[5th/Rear actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 13
+Equation: (A*256+B*1)*0.0254
+Unit: mm
+Min: 0.0
+Max: 1664.589
+
+[Selection actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 15
+Equation: (A*256+B*1)*0.0264
+Unit: mm
+Min: 0.0
+Max: 1730.124
+
+[Odd gears (K1) actuator position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 17
+Equation: (A*256+B*1)*0.0156
+Unit: mm
+Min: 0.0
+Max: 1022.346
+
+[Even gears (K2) actuator pressure]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 19
+Equation: (A*256+B*1)*0.1
+Unit: bar
+Min: 0.0
+Max: 6553.5
+
+[Odd gears (K1) actuator reference]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 21
+Equation: (A*256+B*1)*0.0156
+Unit: mm
+Min: 0.0
+Max: 1022.346
+
+[Even gears (K2) actuator reference]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 23
+Equation: (A*256+B*1)*0.1
+Unit: bar
+Min: 0.0
+Max: 6553.5
+
+[Accelerator pedal position]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 25
+Equation: (A*256+B*1)*0.1
+Unit: percent
+Min: 0.0
+Max: 6553.5
+
+[Hydraulic pressure]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 27
+Equation: (A*256+B*1)*0.1
+Unit: bar
+Min: 0.0
+Max: 6553.5
+
+[Outdoor temperature]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 31
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Odd gears (K1) clutch]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 35
+Equation: (A*256+B*1)
+Unit: rpm
+Min: 0.0
+Max: 65535.0
+
+[Even gears (K2) clutch]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 37
+Equation: (A*256+B*1)
+Unit: rpm
+Min: 0.0
+Max: 65535.0
+
+[PPV1 (3/2/Rear) current]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 41
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[PPV2 (1/6/4/5) current]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 43
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Odd gears (QPV-K1) current]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 45
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Even gears (PPV-K2) current]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 47
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Range selector (PPVS) current]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 49
+Equation: (A*256+B*1)
+Unit: mA
+Min: 0.0
+Max: 65535.0
+
+[Sensor module temperature]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 75
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Odd gear clutch (K1) temperature]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 76
+Equation: SIGNED((A*256+B*1))-50.0
+Unit: celsius
+Min: -32818.0
+Max: 32717.0
+
+[Even gear clutch (K2) temperature]
+Header: 7E1
+Mode: 22
+PID: 1001
+Offset: 78
+Equation: SIGNED((A*256+B*1))-50.0
+Unit: celsius
+Min: -32818.0
+Max: 32717.0
+
+[Outside temperature]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 0
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[LED illumination contrast]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 2
+Equation: A
+Unit: percent
+Min: 0.0
+Max: 255.0
+
+[Auto light sensor]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 4
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Outside temperature (bcm)]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 0
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Auto light sensor (bcm)]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 4
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[A/C evaporator temperature]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 5
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Front wiper int. adjust switch]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 15
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Driving mode switch]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 16
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Outside temperature (bcm)]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 0
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Auto light sensor (bcm)]
+Header: 271
+Mode: 21
+PID: 08
+Offset: 4
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Pb+ Voltage]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 0
+Equation: A*0.09374901960784313
+Unit: volt
+Min: 0.0
+Max: 23.906
+
+[IGS+ Voltage]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 1
+Equation: A*0.09374901960784313
+Unit: volt
+Min: 0.0
+Max: 23.906
+
+[PBDC Voltage]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 2
+Equation: A*0.09374901960784313
+Unit: volt
+Min: 0.0
+Max: 23.906
+
+[BPIN Voltage]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 3
+Equation: A*0.09374901960784313
+Unit: volt
+Min: 0.0
+Max: 23.906
+
+[Li-Ion Battery Current]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 6
+Equation: A*1.5-190.0
+Unit: A
+Min: -190.0
+Max: 192.5
+
+[Relay 2P Current]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 7
+Equation: A*1.4980392156862745-134.0
+Unit: A
+Min: -134.0
+Max: 248.0
+
+[Relay 3P Current]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 8
+Equation: A*1.5-190.0
+Unit: A
+Min: -190.0
+Max: 192.5
+
+[Relay 2S Current]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 9
+Equation: A*0.75-100.0
+Unit: A
+Min: -100.0
+Max: 91.25
+
+[Relay 3S Current]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 10
+Equation: A*0.75-100.0
+Unit: A
+Min: -100.0
+Max: 91.25
+
+[Li-Ion Battery Voltage]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 23
+Equation: A*0.09374901960784313
+Unit: volt
+Min: 0.0
+Max: 23.906
+
+[Li-Ion Battery SOC]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 24
+Equation: A*0.5
+Unit: percent
+Min: 0.0
+Max: 127.5
+
+[Li-Ion Battery Temperature]
+Header: 7E4
+Mode: 21
+PID: 01
+Offset: 25
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Ignition voltage]
+Header: 777
+Mode: 21
+PID: 08
+Offset: 0
+Equation: A*0.1
+Unit: volt
+Min: 0.0
+Max: 25.5
+
+[Vertical offset]
+Header: 777
+Mode: 21
+PID: 08
+Offset: 22
+Equation: A*0.05-6.35
+Unit: degreeAngle
+Min: -6.35
+Max: 6.4
+
+[Detecting distance]
+Header: 777
+Mode: 21
+PID: 08
+Offset: 23
+Equation: (A*256+B*1)*0.02
+Unit: m
+Min: 0.0
+Max: 1310.7
+
+[Lateral offset]
+Header: 777
+Mode: 21
+PID: 08
+Offset: 27
+Equation: A*0.05-6.35
+Unit: degreeAngle
+Min: -6.35
+Max: 6.4
+
+[Detecting distance (aiming)]
+Header: 777
+Mode: 21
+PID: 08
+Offset: 52
+Equation: (A*256+B*1)*0.1
+Unit: mm
+Min: 0.0
+Max: 6553.5
+
+[Camera temperature (current)]
+Header: 777
+Mode: 21
+PID: 09
+Offset: 20
+Equation: A-60.0
+Unit: celsius
+Min: -60.0
+Max: 195.0
+
+[Camera high temperature (history)]
+Header: 777
+Mode: 21
+PID: 09
+Offset: 21
+Equation: A-60.0
+Unit: celsius
+Min: -60.0
+Max: 195.0
+
+[Camera low temperature (history)]
+Header: 777
+Mode: 21
+PID: 09
+Offset: 22
+Equation: A-60.0
+Unit: celsius
+Min: -60.0
+Max: 195.0
+
+[G sensor]
+Header: 799
+Mode: 21
+PID: 00
+Offset: 25
+Equation: (A*256+B*1)*0.06250000762951095-17.625
+Unit: ms2
+Min: -17.625
+Max: 4078.313
+
+[Time (SAT)]
+Header: 799
+Mode: 21
+PID: 06
+Offset: 0
+Equation: (A*16777216+B*65536+C*256+D*1)
+Unit: 
+Min: 0.0
+Max: 4294967295.0
+
+[Number of satellites (SAT)]
+Header: 799
+Mode: 21
+PID: 06
+Offset: 21
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Satellite system type (SAT)]
+Header: 799
+Mode: 21
+PID: 06
+Offset: 22
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Fuel rail pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 28
+Equation: (A*256+B*1)*10.0
+Unit: kpa
+Min: 0.0
+Max: 655350.0
+
+[Target fuel rail pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 30
+Equation: (A*256+B*1)*10.0
+Unit: kpa
+Min: 0.0
+Max: 655350.0
+
+[Calculated load value]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 34
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Target idle speed]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 37
+Equation: A*7.8431372549019605
+Unit: rpm
+Min: 0.0
+Max: 2000.0
+
+[EVAP Canister purge value]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 45
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[EGR value]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 46
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Wastegate valve]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 47
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[VVT (In, Bank 1) diff (target-actual)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 49
+Equation: A*0.35294117647058826-45.2
+Unit: degreeAngle
+Min: -45.2
+Max: 44.8
+
+[VVT (Ex, Bank 1) diff (target-actual)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 52
+Equation: A*0.35294117647058826-45.2
+Unit: degreeAngle
+Min: -45.2
+Max: 44.8
+
+[Intake manifold runner control (IMRC) valve]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 50
+Equation: A*0.02
+Unit: volt
+Min: 0.0
+Max: 5.1
+
+[ISC/IAC control throttle]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 58
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Main throttle sensor]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 59
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Assistant throttle sensor]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 60
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Main accelerator sensor]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 61
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Assistant accelerator sensor]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 62
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[Target throttle position]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 65
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Throttle motor power]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 66
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[Refrigerant pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 100
+Equation: A*40.0-2000.0
+Unit: kpa
+Min: -2000.0
+Max: 8200.0
+
+[Consumption current]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 101
+Equation: A*0.5
+Unit: A
+Min: 0.0
+Max: 127.5
+
+[Generator control duty]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 102
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Generator field monitor duty]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 103
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Leak detection pump censor]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 104
+Equation: (A*256+B*1)*0.01
+Unit: kpa
+Min: 0.0
+Max: 655.35
+
+[Battery current]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 107
+Equation: A*0.7843137254901961-100.0
+Unit: A
+Min: -100.0
+Max: 100.0
+
+[Battery temperature]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 111
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Brake booster pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 118
+Equation: A*0.4
+Unit: kpa
+Min: 0.0
+Max: 102.0
+
+[Generator regulator voltage (com)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 120
+Equation: A*0.1
+Unit: volt
+Min: 0.0
+Max: 25.5
+
+[Target high pressure FP valve closing]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 144
+Equation: A
+Unit: degreeCrankAngle
+Min: 0.0
+Max: 255.0
+
+[Boost pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 147
+Equation: A
+Unit: kpa
+Min: 0.0
+Max: 255.0
+
+[Oil Temp]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 8
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Bank 1]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 17
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Bank 1 (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 18
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Bank 1 (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 21
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Bank 2]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 19
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Bank 2 (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 20
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Bank 2 (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 22
+Equation: A*0.78125-100.0
+Unit: percent
+Min: -100.0
+Max: 99.2188
+
+[Cyl. 1, Bank 1]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 23
+Equation: (A*256+B*1)*0.001
+Unit: msec
+Min: 0.0
+Max: 65.535
+
+[Advance Angle]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 27
+Equation: A*0.5-64.0
+Unit: degreeAngle
+Min: -64.0
+Max: 63.5
+
+[Engine Rpm (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 35
+Equation: (A*256+B*1)*0.25
+Unit: rpm
+Min: 0.0
+Max: 16383.75
+
+[Air Flow]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 38
+Equation: (A*256+B*1)*0.01
+Unit: gPerS
+Min: 0.0
+Max: 655.35
+
+[Speed (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 40
+Equation: A
+Unit: kmh
+Min: 0.0
+Max: 255.0
+
+[Abs Pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 41
+Equation: A
+Unit: kpa
+Min: 0.0
+Max: 255.0
+
+[Engine Temp (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 42
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Intake Temp]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 43
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Bar Pressure]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 44
+Equation: A
+Unit: kpa
+Min: 0.0
+Max: 255.0
+
+[Throttle (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 64
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[O2 Sensor (Bank 1, Sensor 1)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 74
+Equation: A*0.005
+Unit: volt
+Min: 0.0
+Max: 1.275
+
+[O2 Sensor (Bank 1, Sensor 2)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 75
+Equation: A*0.005
+Unit: volt
+Min: 0.0
+Max: 1.275
+
+[A/F Sensor (Bank1, Sensor 1)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 82
+Equation: (A*256+B*1)*0.00390625-128.0
+Unit: mA
+Min: -128.0
+Max: 127.9961
+
+[Voltage (engine)]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 97
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[Fuel Level]
+Header: 7E0
+Mode: 21
+PID: 00
+Offset: 99
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Odometer]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 5
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[Injector power]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 12
+Equation: (A*256+B*1)*0.001
+Unit: volt
+Min: 0.0
+Max: 65.535
+
+[APP sensor 1]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 20
+Equation: (A*256+B*1)
+Unit: volt
+Min: 0.0
+Max: 65535.0
+
+[APP sensor 2]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 22
+Equation: (A*256+B*1)*5.0
+Unit: volt
+Min: 0.0
+Max: 327675.0
+
+[Glow plug low]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 31
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[A/F sensor heater]
+Header: 7E0
+Mode: 21
+PID: 51
+Offset: 34
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[MAF]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 2
+Equation: (A*256+B*1)*0.01
+Unit: gPerS
+Min: 0.0
+Max: 655.35
+
+[IAT-1]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 8
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[IAT-2]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 11
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Boost pressure (engine)]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 18
+Equation: (A*256+B*1)*0.1
+Unit: kpa
+Min: 0.0
+Max: 6553.5
+
+[EGR valve]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 24
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Boost pressure valve]
+Header: 7E0
+Mode: 21
+PID: 52
+Offset: 35
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Fuel rail pressure (engine)]
+Header: 7E0
+Mode: 21
+PID: 53
+Offset: 2
+Equation: SIGNED((A*256+B*1))*10.0
+Unit: kpa
+Min: -327680.0
+Max: 327670.0
+
+[Fuel temperature]
+Header: 7E0
+Mode: 21
+PID: 53
+Offset: 6
+Equation: (A*256+B*1)*0.02-40.0
+Unit: celsius
+Min: -40.0
+Max: 1270.7
+
+[Fuel flow actuator]
+Header: 7E0
+Mode: 21
+PID: 53
+Offset: 9
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Total injected fuel]
+Header: 7E0
+Mode: 21
+PID: 53
+Offset: 15
+Equation: (A*256+B*1)*0.0029999999999999996
+Unit: 
+Min: 0.0
+Max: 196.605
+
+[DPF diff. pressure]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 2
+Equation: (A*256+B*1)*0.1
+Unit: kpa
+Min: 0.0
+Max: 6553.5
+
+[Inlet DPF EGT]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 6
+Equation: (A*256+B*1)*0.1-40.0
+Unit: celsius
+Min: -40.0
+Max: 6513.5
+
+[DPF flow resistance]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 8
+Equation: (A*256+B*1)*2.0-0.65535
+Unit: 
+Min: -0.6553
+Max: 131069.3446
+
+[Distance from DPF light on]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 11
+Equation: (A*256+B*1)
+Unit: km
+Min: 0.0
+Max: 65535.0
+
+[Soot mass]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 52
+Equation: (A*256+B*1)*0.015259021896696421
+Unit: percent
+Min: 0.0
+Max: 1000.0
+
+[Distance from DPF replace]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 59
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[Distance from regenerate]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 62
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[Oil life]
+Header: 7E0
+Mode: 21
+PID: 55
+Offset: 92
+Equation: (A*256+B*1)*0.0015259021896696422
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Odometer (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 3
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[APP sensor 1 (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 11
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[APP sensor 2 (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 12
+Equation: A*0.0196078431372549
+Unit: volt
+Min: 0.0
+Max: 5.0
+
+[IAT-1 (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 14
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[IAT-2 (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 15
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[MAF (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 16
+Equation: (A*256+B*1)*0.01
+Unit: gPerS
+Min: 0.0
+Max: 655.35
+
+[MAP]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 21
+Equation: A*2.0
+Unit: kpa
+Min: 0.0
+Max: 510.0
+
+[A/F sensor heater (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 34
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[EGR-1 value opening]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 48
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Differential pressure]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 66
+Equation: (A*256+B*1)*0.01
+Unit: kpa
+Min: 0.0
+Max: 655.35
+
+[Inlet DPF EGT (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 68
+Equation: (A*256+B*1)*0.1-40.0
+Unit: celsius
+Min: -40.0
+Max: 6513.5
+
+[DPF flow resistance (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 70
+Equation: (A*256+B*1)*2.0-6.5535
+Unit: 
+Min: -6.5535
+Max: 131063.4465
+
+[Soot mass (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 73
+Equation: A
+Unit: percent
+Min: 0.0
+Max: 255.0
+
+[Oil life (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 80
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[EGR-2 value opening]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 87
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Glow plug low voltage]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 94
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Battery current (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 97
+Equation: (A*256+B*1)*0.125-4096.0
+Unit: A
+Min: -4096.0
+Max: 4095.875
+
+[Battery temperature (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 99
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Commanded alternator regulated voltage]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 100
+Equation: A*0.1-0.1
+Unit: volt
+Min: -0.1
+Max: 25.4
+
+[Fuel rail pressure (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 113
+Equation: (A*256+B*1)*10.0
+Unit: kpa
+Min: 0.0
+Max: 655350.0
+
+[Fuel temperature (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 115
+Equation: A*2.0-40.0
+Unit: celsius
+Min: -40.0
+Max: 470.0
+
+[Fuel flow actuator (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 116
+Equation: A*0.39215686274509803
+Unit: percent
+Min: 0.0
+Max: 100.0
+
+[Total injected fuel (engine)]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 124
+Equation: (A*256+B*1)*0.01-327.68
+Unit: 
+Min: -327.68
+Max: 327.67
+
+[Fuel correction Cyl#1]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 186
+Equation: (A*256+B*1)*0.01-327.68
+Unit: 
+Min: -327.68
+Max: 327.67
+
+[Fuel correction Cyl#2]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 188
+Equation: (A*256+B*1)*0.01-327.68
+Unit: 
+Min: -327.68
+Max: 327.67
+
+[Fuel correction Cyl#3]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 190
+Equation: (A*256+B*1)*0.01-327.68
+Unit: 
+Min: -327.68
+Max: 327.67
+
+[Fuel correction Cyl#4]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 192
+Equation: (A*256+B*1)*0.01-327.68
+Unit: 
+Min: -327.68
+Max: 327.67
+
+[Inlet catalyst gas]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 198
+Equation: (A*256+B*1)*0.02-40.0
+Unit: celsius
+Min: -40.0
+Max: 1270.7
+
+[Outlet DPF gas]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 200
+Equation: (A*256+B*1)*0.02-40.0
+Unit: celsius
+Min: -40.0
+Max: 1270.7
+
+[Outlet EGR cooler gas]
+Header: 7E0
+Mode: 21
+PID: 70
+Offset: 202
+Equation: (A*256+B*1)*0.02-40.0
+Unit: celsius
+Min: -40.0
+Max: 1270.7
+
+[Distance from DPF light on (engine)]
+Header: 7E0
+Mode: 21
+PID: 71
+Offset: 19
+Equation: (A*256+B*1)
+Unit: km
+Min: 0.0
+Max: 65535.0
+
+[Distance from DPF replace (engine)]
+Header: 7E0
+Mode: 21
+PID: 71
+Offset: 21
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[Distance from regeneration]
+Header: 7E0
+Mode: 21
+PID: 71
+Offset: 24
+Equation: (A*65536+B*256+C*1)*0.1
+Unit: km
+Min: 0.0
+Max: 1677721.5
+
+[Battery ambient temperature]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 0
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Battery voltage]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 1
+Equation: (A*256+B*1)*0.016276371404592965
+Unit: volt
+Min: 0.0
+Max: 1066.672
+
+[Battery current (engine)]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 3
+Equation: (A*256+B*1)*0.1-300.0
+Unit: A
+Min: -300.0
+Max: 6253.5
+
+[Brake booster pressure (engine)]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 7
+Equation: A*0.4
+Unit: kpa
+Min: 0.0
+Max: 102.0
+
+[Master cylinder pressure (engine)]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 8
+Equation: (A*256+B*1)
+Unit: kpa
+Min: 0.0
+Max: 65535.0
+
+[Brake store]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 10
+Equation: (A*256+B*1)*0.09765624475471123
+Unit: percent
+Min: 0.0
+Max: 6399.902
+
+[AT/CVT fluid temperature]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 12
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[Slope range]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 13
+Equation: (A*256+B*1)*0.01-163.84
+Unit: percent
+Min: -163.84
+Max: 491.51
+
+[Battery temperature (engine)]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 15
+Equation: A-40.0
+Unit: celsius
+Min: -40.0
+Max: 215.0
+
+[ISG restart count]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 16
+Equation: (A*256+B*1)*5.0
+Unit: 
+Min: 0.0
+Max: 327675.0
+
+[Backup start count by starting motor]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 18
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Brake stroke sensor voltage]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 19
+Equation: A*0.019529411764705885
+Unit: volt
+Min: 0.0
+Max: 4.98
+
+[ISG rotation speed]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 26
+Equation: (A*256+B*1)*10.0-2000.0
+Unit: rpm
+Min: -2000.0
+Max: 653350.0
+
+[ISG belt slip]
+Header: 7E0
+Mode: 21
+PID: 90
+Offset: 30
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Outside air temperature (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 22
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Cabin air temperature]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 23
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Sun load sensor]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 24
+Equation: A*17.44235294117647
+Unit: 
+Min: 0.0
+Max: 4447.8
+
+[Evaporator temperature]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 25
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Refrigerant pressure (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 26
+Equation: A*14.0
+Unit: kpa
+Min: 0.0
+Max: 3570.0
+
+[Fan switch]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 9
+Equation: A
+Unit: 
+Min: 0.0
+Max: 255.0
+
+[Outside air temperature (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 22
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Cabin air temperature (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 23
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Sun load sensor (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 24
+Equation: A*5.0
+Unit: 
+Min: 0.0
+Max: 1275.0
+
+[Evaporator temperature (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 25
+Equation: A*0.5-40.0
+Unit: celsius
+Min: -40.0
+Max: 87.5
+
+[Refrigerant pressure (hvac)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 26
+Equation: A*14.0
+Unit: kpa
+Min: 0.0
+Max: 3570.0
+
+[Air mix position sensor (Driver)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 33
+Equation: A*0.019999999999999997
+Unit: volt
+Min: 0.0
+Max: 5.1
+
+[Air mix position sensor (Passenger)]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 35
+Equation: A*0.019999999999999997
+Unit: volt
+Min: 0.0
+Max: 5.1
+
+[Mode position sensor]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 39
+Equation: A*0.019999999999999997
+Unit: volt
+Min: 0.0
+Max: 5.1
+
+[Fresh air position sensor]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 45
+Equation: A*0.019999999999999997
+Unit: volt
+Min: 0.0
+Max: 5.1
+
+[Fan desired voltage]
+Header: 272
+Mode: 21
+PID: 08
+Offset: 49
+Equation: A*0.1
+Unit: volt
+Min: 0.0
+Max: 25.5
+
+[Distance from oil change request light reset]
+Header: 274
+Mode: 21
+PID: 01
+Offset: 35
+Equation: (A*256+B*1)
+Unit: km
+Min: 0.0
+Max: 65535.0
+
+[Period from oil change request light reset]
+Header: 274
+Mode: 21
+PID: 01
+Offset: 37
+Equation: (A*256+B*1)
+Unit: days
+Min: 0.0
+Max: 65535.0
+
+[ISG rotation speed (isg)]
+Header: 715
+Mode: 21
+PID: 01
+Offset: 6
+Equation: SIGNED((A*256+B*1))
+Unit: rpm
+Min: -32768.0
+Max: 32767.0
+
+[Sensor power supply]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 8
+Equation: A*0.02431372549019608
+Unit: volt
+Min: 0.0
+Max: 6.2
+
+[Sensor (main) torque]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 9
+Equation: A*0.15313725490196078-19.6
+Unit: Nm
+Min: -19.6
+Max: 19.45
+
+[Sensor (sub) torque]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 10
+Equation: A*0.15313725490196078-19.6
+Unit: Nm
+Min: -19.6
+Max: 19.45
+
+[Control torque]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 11
+Equation: A*0.06125-7.84
+Unit: Nm
+Min: -7.84
+Max: 7.7788
+
+[Target motor current]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 12
+Equation: A*0.2
+Unit: A
+Min: 0.0
+Max: 51.0
+
+[Measure motor current]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 13
+Equation: A*0.2
+Unit: A
+Min: 0.0
+Max: 51.0
+
+[Motor drive voltage (+)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 25
+Equation: A*0.11701960784313725-5.0
+Unit: volt
+Min: -5.0
+Max: 24.84
+
+[Motor drive voltage (-)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 26
+Equation: A*0.11701960784313725-5.0
+Unit: volt
+Min: -5.0
+Max: 24.84
+
+[Sensor power supply (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 8
+Equation: A*0.0784313725490196
+Unit: volt
+Min: 0.0
+Max: 20.0
+
+[Sensor (main) torque (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 9
+Equation: A*0.16862745098039217-21.58
+Unit: Nm
+Min: -21.58
+Max: 21.42
+
+[Sensor (sub) torque (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 10
+Equation: A*0.16862745098039217-21.58
+Unit: Nm
+Min: -21.58
+Max: 21.42
+
+[Control torque (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 11
+Equation: A*0.05617254901960785-7.19
+Unit: Nm
+Min: -7.19
+Max: 7.134
+
+[Target motor current (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 12
+Equation: A*0.5
+Unit: A
+Min: 0.0
+Max: 127.5
+
+[Measure motor current (ps)]
+Header: 263
+Mode: 21
+PID: 08
+Offset: 13
+Equation: A*0.5
+Unit: A
+Min: 0.0
+Max: 127.5
+
+[Air temperature #1]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 15
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Air pressure #1]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 16
+Equation: A*0.0137
+Unit: tireBar
+Min: 0.0
+Max: 3.4935
+
+[Air temperature #2]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 25
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Air pressure #2]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 26
+Equation: A*0.0137
+Unit: tireBar
+Min: 0.0
+Max: 3.4935
+
+[Air temperature #3]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 35
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Air pressure #3]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 36
+Equation: A*0.0137
+Unit: tireBar
+Min: 0.0
+Max: 3.4935
+
+[Air temperature #4]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 45
+Equation: A-50.0
+Unit: celsius
+Min: -50.0
+Max: 205.0
+
+[Air pressure #4]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 46
+Equation: A*0.0137
+Unit: tireBar
+Min: 0.0
+Max: 3.4935
+
+[TPS acceleration #1]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 17
+Equation: A*0.5
+Unit: G
+Min: 0.0
+Max: 127.5
+
+[TPS acceleration #2]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 27
+Equation: A*0.5
+Unit: G
+Min: 0.0
+Max: 127.5
+
+[TPS acceleration #3]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 37
+Equation: A*0.5
+Unit: G
+Min: 0.0
+Max: 127.5
+
+[TPS acceleration #4]
+Header: 798
+Mode: 21
+PID: 00
+Offset: 47
+Equation: A*0.5
+Unit: G
+Min: 0.0
+Max: 127.5
