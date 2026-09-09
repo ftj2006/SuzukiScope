@@ -63,7 +63,7 @@ expressed in Torque's format at all, not just "might not work."
 
 ### 3a. The default-gauge file (7 fields, only 1 mathematically valid)
 
-[reference/torque-custom-pids/pj_viewer_suzuki.csv](torque-custom-pids/pj_viewer_suzuki.csv)
+[reference/torque-custom-pids/suzukiscope_suzuki.csv](torque-custom-pids/suzukiscope_suzuki.csv)
 — kept as the same 7 fields as this app's default dashboard, for easy side-by-side reference,
 but be clear about which actually work:
 
@@ -99,7 +99,7 @@ whose byte offset actually fits within `A`-`Z`. That produces **185 fields** acr
 CAN modules/IDs (ABS, engine variants, etc. — each row carries its own `OBD Header`, so
 Torque will re-send `ATSH` per PID for you, unlike our own app's flow-control needing a fixed
 header) — genuinely the largest set Torque's format can express from this catalog, at
-[reference/torque-custom-pids/pj_viewer_suzuki_extended.csv](torque-custom-pids/pj_viewer_suzuki_extended.csv).
+[reference/torque-custom-pids/suzukiscope_suzuki_extended.csv](torque-custom-pids/suzukiscope_suzuki_extended.csv).
 Regenerate it any time with `python3 reference/generate_torque_csv.py` if the catalog changes.
 
 Caveats specific to this extended file:

@@ -1,4 +1,4 @@
-# pj-viewer
+# SuzukiScope
 
 A Kotlin Multiplatform Android app for live diagnostic data, gauges, and DTC (fault code)
 read/clear on Suzuki vehicles over Bluetooth or Wi-Fi ELM327 adapters — a from-scratch
@@ -32,7 +32,7 @@ the full breakdown of what's different and why.
 - `ui/` — shared Compose Multiplatform UI (Dashboard/Config/DTC screens, gauges), consumed by
   both the phone app and Android Auto
 - `androidApp/` — the Android app itself (phone UI + Android Auto Car App Service),
-  labelled/packaged as **pj-viewer**
+  labelled/packaged as **SuzukiScope**
 - `reference/` — reverse-engineering artifacts and documentation (see below)
 
 ## Reference documentation
@@ -49,9 +49,9 @@ the full breakdown of what's different and why.
   default engine gauges in the Torque Pro Android app via its custom-PID/custom-init-string
   features, including exact byte-offset/equation translations and honest limitations (DTCs
   and multi-module switching won't work through Torque). Ready-to-import CSVs:
-  [pj_viewer_suzuki.csv](reference/torque-custom-pids/pj_viewer_suzuki.csv) (default gauges,
+  [suzukiscope_suzuki.csv](reference/torque-custom-pids/suzukiscope_suzuki.csv) (default gauges,
   only 1 fits Torque's format) and
-  [pj_viewer_suzuki_extended.csv](reference/torque-custom-pids/pj_viewer_suzuki_extended.csv)
+  [suzukiscope_suzuki_extended.csv](reference/torque-custom-pids/suzukiscope_suzuki_extended.csv)
   (185 fields, generated from the full catalog by
   [reference/generate_torque_csv.py](reference/generate_torque_csv.py)).
 - [reference/LUFI_X7_SETUP_GUIDE.md](reference/LUFI_X7_SETUP_GUIDE.md) — the same, for the
@@ -77,7 +77,7 @@ the full breakdown of what's different and why.
 ```
 
 Requires `ANDROID_HOME` set and the Android SDK installed. Output APK:
-`androidApp/build/outputs/apk/debug/pj-viewer-<version>-debug.apk`.
+`androidApp/build/outputs/apk/debug/SuzukiScope-<version>-debug.apk`.
 
 ## Status
 

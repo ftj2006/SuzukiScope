@@ -1,4 +1,4 @@
-pj-viewer connects to an ELM327 OBD-II adapter (Wi-Fi or Bluetooth) to read live diagnostic data from your Suzuki vehicle's CAN bus.
+SuzukiScope connects to an ELM327 OBD-II adapter (Wi-Fi or Bluetooth) to read live diagnostic data from your Suzuki vehicle's CAN bus.
 
 Features:
 - Configurable live gauges (oil/water temperature, boost pressure, RPM, throttle, speed, and more)

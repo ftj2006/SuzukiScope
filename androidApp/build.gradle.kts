@@ -15,7 +15,7 @@ play {
 }
 
 android {
-    namespace = "com.suzukiscan.android"
+    namespace = "com.suzukiscope.android"
     compileSdk = 36
 
     // Committed so local and CI builds always sign with the same key — otherwise every CI run
@@ -69,7 +69,7 @@ android {
     applicationVariants.all {
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "pj-viewer-${versionName}-${name}.apk"
+            output.outputFileName = "SuzukiScope-${versionName}-${name}.apk"
         }
     }
 }

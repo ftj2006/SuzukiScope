@@ -3,7 +3,7 @@
 This documents everything this app does *differently from a generic OBD-II/ELM327 client*
 in order to talk to Suzuki modules, traced from the decompiled original `sz-viewer.jar`
 (`com.malykh.szviewer.common.*`) and re-implemented from scratch in
-`core/src/commonMain/kotlin/com/suzukiscan/core/`. If you're used to a standard OBD-II app
+`core/src/commonMain/kotlin/com/suzukiscope/core/`. If you're used to a standard OBD-II app
 (mode 01 PIDs, mode 03/04 DTCs), almost none of that applies here — Suzuki's factory
 diagnostic tool uses its own proprietary service set on top of the physical
 KWP2000/CAN transport layers.
@@ -19,12 +19,12 @@ is different and depends on which module (ECU) you're talking to:
 | K-Line ("sdlmod") | ISO 14230-4 KWP2000, **fast init** | Most non-engine modules (ABS, BCM, HVAC, IPC, etc.) and some engine variants | Physical (`0x80 <target> 0xF1`) or functional (`0xC0 <target> 0xF1`) 3-byte header |
 | CAN-UDS | ISO 15765-4, 11-bit ID, 500 kbaud | Most engine/powertrain fields (the default gauge set) | 11-bit CAN ID (e.g. `0x7E0`), response on `id+8` (e.g. `0x7E8`) |
 
-Each [`FieldDefinition`](/core/src/commonMain/kotlin/com/suzukiscan/core/field/FieldDefinition.kt)'s
+Each [`FieldDefinition`](/core/src/commonMain/kotlin/com/suzukiscope/core/field/FieldDefinition.kt)'s
 `RequestSpec.responsePrefixBytes`/`responseSuffixBytes` implicitly says which bus it needs
-(3/1 = KWP framing, 0/0 = CAN framing) — see [`Elm327Protocol`](/core/src/commonMain/kotlin/com/suzukiscan/core/elm327/Elm327Client.kt).
+(3/1 = KWP framing, 0/0 = CAN framing) — see [`Elm327Protocol`](/core/src/commonMain/kotlin/com/suzukiscope/core/elm327/Elm327Client.kt).
 
 **Important limitation**: a real ELM327 adapter can only be initialised for *one* bus at a
-time. [`AppState.connect()`](/androidApp/src/main/kotlin/com/suzukiscan/android/AppState.kt)
+time. [`AppState.connect()`](/androidApp/src/main/kotlin/com/suzukiscope/android/AppState.kt)
 auto-selects CAN vs KWP based on whichever fields are currently enabled — if you mix modules
 from both buses, only the majority bus's fields will actually work until you reconnect.
 
@@ -34,7 +34,7 @@ reconfiguring a shared/borrowed adapter.
 
 ## 2. The full ELM327 init sequence, and why every line is there
 
-[`Elm327Client.reset()`](/core/src/commonMain/kotlin/com/suzukiscan/core/elm327/Elm327Client.kt)
+[`Elm327Client.reset()`](/core/src/commonMain/kotlin/com/suzukiscope/core/elm327/Elm327Client.kt)
 sends this exact sequence before selecting a bus (traced from
 `com.malykh.szviewer.common.elm327.init`), not the minimal `ATZ`/`ATE0` most OBD-II tools use:
 

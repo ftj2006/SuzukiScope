@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 CATALOG = Path(__file__).parent.parent / "core/src/jvmMain/resources/suzuki-fields-catalog.json"
-OUT = Path(__file__).parent / "torque-custom-pids/pj_viewer_suzuki_extended.csv"
+OUT = Path(__file__).parent / "torque-custom-pids/suzukiscope_suzuki_extended.csv"
 
 
 def letter(index: int) -> str:

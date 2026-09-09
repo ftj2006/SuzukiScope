@@ -33,7 +33,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.suzukiscan.ui"
+    namespace = "com.suzukiscope.ui"
     compileSdk = 36
 
     defaultConfig {

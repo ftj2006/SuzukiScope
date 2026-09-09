@@ -20,10 +20,10 @@
 
     <application
         android:allowBackup="true"
-        android:name=".PjViewerApplication"
-        android:label="pj-viewer"
+        android:name=".SuzukiScopeApplication"
+        android:label="SuzukiScope"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.SuzukiScan">
+        android:theme="@style/Theme.SuzukiScope">
         <meta-data
             android:name="androidx.car.app.minCarApiLevel"
             android:value="6" />
@@ -40,9 +40,9 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".auto.SuzukiScanCarAppService"
+            android:name=".auto.SuzukiScopeCarAppService"
             android:exported="true"
-            android:label="pj-viewer"
+            android:label="SuzukiScope"
             android:icon="@mipmap/ic_launcher">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />

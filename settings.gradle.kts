@@ -1,4 +1,4 @@
-rootProject.name = "suzuki-scan"
+rootProject.name = "pj-suzukiscope"
 
 pluginManagement {
     repositories {

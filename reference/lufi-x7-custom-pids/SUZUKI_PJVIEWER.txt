@@ -1,4 +1,4 @@
-; Best-effort approximation of a Lufi USERPID custom-PID file for pj-viewer's default
+; Best-effort approximation of a Lufi USERPID custom-PID file for SuzukiScope's default
 ; Suzuki engine gauges. See reference/LUFI_X7_SETUP_GUIDE.md for the full explanation,
 ; confidence caveats, and encoding notes (this file is plain UTF-8 text; if the X7
 ; rejects it, try re-saving as GBK or UTF-16 LE before giving up on the format).
