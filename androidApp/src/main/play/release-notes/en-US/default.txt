@@ -1,3 +1,3 @@
-- Field config: new Protocol drop-down (CAN or K-Line). Only fields for the chosen protocol are listed and can be shown, and connecting uses it — no more mixed selections
-- Fixed: adapter replies out of step after reconnecting
-- Wi-Fi reconnects no longer overlap; record icon contrast; menu label tidy-up
+- Gauges learn your car's real operating range over drives and scale to it (reset per field in its limits dialog)
+- Oil/water gauges reset to 0–100 (a glitch had stretched them to 220); single bad readings no longer affect scales
+- Field config: Protocol drop-down (CAN or K-Line), no mixed selections

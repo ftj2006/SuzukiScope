@@ -37,6 +37,9 @@ data class FieldDefinition(
      * out on the vehicle actually tested \u2014 lets the config screen hide it by default without
      * losing it, since it may still work on a different vehicle variant/module. */
     val verifiedNoData: Boolean = false,
+    /** Lowest/highest values seen on the real vehicle across drives; the gauge scale follows these once set. */
+    val learnedMin: Double? = null,
+    val learnedMax: Double? = null,
 )
 
 /** How to build the KWP2000/UDS request for this field. */

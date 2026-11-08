@@ -160,6 +160,18 @@ object AppState {
         persistFile = file
         FieldRegistryStore.load(dashboardViewModel.registry, file)
         dashboardViewModel.refreshFields()
+        resetDefaultScalesOnce(File(file.parentFile, "gauge-scale-reset-v1.txt"))
+    }
+
+    // Before 1.5.39 a single garbled reading could permanently widen a gauge (e.g. oil/water to
+    // 220); put the default gauges back to their baseline range once.
+    private fun resetDefaultScalesOnce(marker: File) {
+        if (marker.exists()) return
+        com.suzukiscope.core.field.FieldRegistry.withExampleDefaults().fields.forEach { default ->
+            dashboardViewModel.setGaugeMin(default.id, default.gaugeMin)
+            dashboardViewModel.setGaugeMax(default.id, default.gaugeMax)
+        }
+        runCatching { marker.parentFile?.mkdirs(); marker.writeText("done") }
     }
 
     /** Restores the chosen vehicle bus (or infers it from the enabled fields) and drops any other-bus fields. */

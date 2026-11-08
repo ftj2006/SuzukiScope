@@ -6,6 +6,18 @@ import kotlin.test.assertTrue
 
 class GaugeScaleTest {
     @Test
+    fun learnedRangeRoundsOutwardsToHalfDecadeSteps() {
+        assertEquals(20.0 to 100.0, learnedGaugeRange(22.0, 96.0))
+        assertEquals(500.0 to 6500.0, learnedGaugeRange(780.0, 6420.0))
+    }
+
+    @Test
+    fun learnedRangeKeepsThresholdsVisibleAndHasMinimumSpan() {
+        assertEquals(80.0 to 120.0, learnedGaugeRange(84.0, 96.0, listOf(110.0, 120.0)))
+        assertEquals(85.0 to 95.0, learnedGaugeRange(88.0, 88.0))
+    }
+
+    @Test
     fun roundsUpToNiceStepForItsMagnitude() {
         assertEquals(6500.0, niceScaleMax(6420.0))
         assertTrue(kotlin.math.abs(niceScaleMax(1.55) - 1.6) < 1e-9)

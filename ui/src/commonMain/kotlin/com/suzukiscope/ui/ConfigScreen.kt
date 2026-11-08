@@ -73,6 +73,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
         ThresholdDialog(
             field = field,
             onDismiss = { editingField = null },
+            onResetLearned = { viewModel.resetLearnedRange(field.id); editingField = null },
             onSave = { min, max, warning, critical ->
                 min?.let { viewModel.setGaugeMin(field.id, it) }
                 max?.let { viewModel.setGaugeMax(field.id, it) }
@@ -251,6 +252,7 @@ private fun protocolHint(protocol: Elm327Protocol): String = when (protocol) {
 private fun ThresholdDialog(
     field: FieldDefinition,
     onDismiss: () -> Unit,
+    onResetLearned: () -> Unit,
     onSave: (min: Double?, max: Double?, warning: Double?, critical: Double?) -> Unit,
 ) {
     var minText by remember(field.id) { mutableStateOf(field.gaugeMin.toString()) }
@@ -288,6 +290,15 @@ private fun ThresholdDialog(
                     onValueChange = { criticalText = it },
                     label = { Text("Critical \u2014 ${field.unit}") },
                 )
+                val learned = if (field.learnedMin != null && field.learnedMax != null) {
+                    "Learned from your drives: ${"%.1f".format(field.learnedMin)} \u2013 ${"%.1f".format(field.learnedMax)} ${field.unit}"
+                } else {
+                    "No range learned yet \u2014 the scale adjusts as you drive."
+                }
+                Text(learned, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                if (field.learnedMin != null) {
+                    TextButton(onClick = onResetLearned) { Text("Reset learned range") }
+                }
             }
         },
         confirmButton = {

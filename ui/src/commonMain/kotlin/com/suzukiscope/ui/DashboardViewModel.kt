@@ -2,6 +2,7 @@ package com.suzukiscope.ui
 
 import com.suzukiscope.core.field.FieldDefinition
 import com.suzukiscope.core.field.FieldRegistry
+import com.suzukiscope.core.field.learnedGaugeRange
 import com.suzukiscope.core.field.niceScaleMax
 import com.suzukiscope.core.field.niceScaleMin
 import com.suzukiscope.core.log.LiveDataRecorder
@@ -106,8 +107,8 @@ class DashboardViewModel(
                 lastReadingAtMs = currentTimeMillis()
                 _values.value = _values.value + (reading.fieldId to reading.value)
                 _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
-                autoScaleGaugeMax(reading.fieldId, reading.value)
-                autoScaleGaugeMin(reading.fieldId, reading.value)
+                // Only real vehicle data teaches the scale; test data would teach a fake range.
+                if (isUsingHardwareSource()) learnRange(reading.fieldId, reading.value)
                 checkCritical(reading.fieldId, reading.value)
                 if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
                     recorder.record(reading)
@@ -138,20 +139,51 @@ class DashboardViewModel(
      * connection has likely dropped even though no exception ever reached this layer. */
     fun millisSinceLastReading(): Long = currentTimeMillis() - lastReadingAtMs
 
-    /** Ratchets a field's gauge max up (never down) to the highest value ever recorded for it,
-     * rounded to a nice number — persisted so future runs start already scaled correctly. */
-    private fun autoScaleGaugeMax(id: String, value: Double) {
+    /**
+     * Learns each field's real operating range from the vehicle across drives (persisted), and
+     * scales its gauge to that range. The first drives are jumpy; it settles as extremes are seen.
+     */
+    private fun learnRange(id: String, value: Double) {
         val field = registry.get(id) ?: return
-        if (value <= field.gaugeMax) return
-        setGaugeMax(id, niceScaleMax(value))
+        val lo = field.learnedMin
+        val hi = field.learnedMax
+        val newLow = sustainedOutOfRange("$id:min", lo == null || value < lo)
+        val newHigh = sustainedOutOfRange("$id:max", hi == null || value > hi)
+        if (!newLow && !newHigh) return
+        val learnedMin = if (newLow || lo == null) value else lo
+        val learnedMax = if (newHigh || hi == null) value else hi
+        registry.setLearnedRange(id, learnedMin, learnedMax)
+        val (gaugeMin, gaugeMax) = learnedGaugeRange(learnedMin, learnedMax, listOfNotNull(field.warningThreshold, field.criticalThreshold))
+        registry.setGaugeMin(id, gaugeMin)
+        registry.setGaugeMax(id, gaugeMax)
+        _fields.value = registry.fields
+        persist()
     }
 
-    /** Ratchets a field's gauge min down (never up) to the lowest value ever recorded for it,
-     * rounded to a nice number — persisted so future runs start already scaled correctly. */
-    private fun autoScaleGaugeMin(id: String, value: Double) {
-        val field = registry.get(id) ?: return
-        if (value >= field.gaugeMin) return
-        setGaugeMin(id, niceScaleMin(value))
+    /** Forgets a field's learned range so it is re-learned from the next drive. */
+    fun resetLearnedRange(id: String) {
+        registry.setLearnedRange(id, null, null)
+        outOfRangeStreak.remove("$id:min")
+        outOfRangeStreak.remove("$id:max")
+        _fields.value = registry.fields
+        persist()
+    }
+
+    // A single garbled frame (e.g. 0xFF decoding to 215 °C) must not become a learned extreme,
+    // so a new min/max only counts once several readings in a row agree.
+    private val outOfRangeStreak = HashMap<String, Int>()
+    private fun sustainedOutOfRange(key: String, outOfRange: Boolean): Boolean {
+        if (!outOfRange) {
+            outOfRangeStreak.remove(key)
+            return false
+        }
+        val streak = (outOfRangeStreak[key] ?: 0) + 1
+        outOfRangeStreak[key] = streak
+        return streak >= WIDEN_AFTER_READINGS
+    }
+
+    private companion object {
+        const val WIDEN_AFTER_READINGS = 3
     }
 
     fun stop() {

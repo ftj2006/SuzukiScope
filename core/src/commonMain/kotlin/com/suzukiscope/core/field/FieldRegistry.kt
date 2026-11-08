@@ -37,6 +37,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     fun setVerifiedNoData(id: String, noData: Boolean) {
         _fields[id]?.let { _fields[id] = it.copy(verifiedNoData = noData) }
     }
+    fun setLearnedRange(id: String, min: Double?, max: Double?) {
+        _fields[id]?.let { _fields[id] = it.copy(learnedMin = min, learnedMax = max) }
+    }
     fun get(id: String): FieldDefinition? = _fields[id]
 
     /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order. */
@@ -78,9 +81,12 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 enabled = persisted.enabled,
                 recordEnabled = persisted.recordEnabled,
                 gaugeMax = persisted.gaugeMax,
+                gaugeMin = persisted.gaugeMin,
                 warningThreshold = persisted.warningThreshold,
                 criticalThreshold = persisted.criticalThreshold,
                 verifiedNoData = persisted.verifiedNoData,
+                learnedMin = persisted.learnedMin,
+                learnedMax = persisted.learnedMax,
             ) ?: persisted
         }
         for ((id, field) in _fields) {
@@ -112,7 +118,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 10, byteLength = 1, offset = -40.0),
                     gaugeMin = 0.0,
-                    gaugeMax = 110.0,
+                    gaugeMax = 100.0,
                     warningThreshold = 110.0,
                     criticalThreshold = 120.0,
                 ),
@@ -123,7 +129,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 44, byteLength = 1, offset = -40.0),
                     gaugeMin = 0.0,
-                    gaugeMax = 110.0,
+                    gaugeMax = 100.0,
                 ),
                 FieldDefinition(
                     id = "engine.boost_pressure",
