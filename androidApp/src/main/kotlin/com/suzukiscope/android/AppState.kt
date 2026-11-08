@@ -161,13 +161,14 @@ object AppState {
         FieldRegistryStore.load(dashboardViewModel.registry, file)
         dashboardViewModel.refreshFields()
         resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v2.txt"))
+        resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v3.txt"), setOf("engine.boost_pressure", "engine.boost_relative"))
     }
 
-    // Applies the current default ranges/thresholds to the default gauges once, replacing older
-    // defaults and glitch-stretched scales; learning then starts fresh from these.
-    private fun resetDefaultScalesOnce(marker: File) {
+    // Applies the current default ranges/thresholds to the default gauges ([only] those ids, if given)
+    // once, replacing older defaults and glitch-stretched scales; learning then starts fresh from these.
+    private fun resetDefaultScalesOnce(marker: File, only: Set<String>? = null) {
         if (marker.exists()) return
-        com.suzukiscope.core.field.FieldRegistry.withExampleDefaults().fields.forEach { default ->
+        com.suzukiscope.core.field.FieldRegistry.withExampleDefaults().fields.filter { only == null || it.id in only }.forEach { default ->
             dashboardViewModel.setGaugeMin(default.id, default.gaugeMin)
             dashboardViewModel.setGaugeMax(default.id, default.gaugeMax)
             dashboardViewModel.setThresholds(default.id, default.warningThreshold, default.criticalThreshold)

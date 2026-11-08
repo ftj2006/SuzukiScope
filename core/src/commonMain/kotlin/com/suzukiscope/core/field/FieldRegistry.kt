@@ -140,10 +140,8 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     // Catalog entry is raw kPa (scale=1.0); 0.01 converts to bar.
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01),
-                    gaugeMin = 0.8,
-                    gaugeMax = 1.7,
-                    warningThreshold = 1.45,
-                    criticalThreshold = 1.5,
+                    gaugeMin = 0.0,
+                    gaugeMax = 2.7,
                     decimals = 2,
                 ),
                 FieldDefinition(
@@ -153,8 +151,10 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     // Manifold pressure minus barometric pressure (both kPa in the same 21 00 reply), in bar.
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
                     decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01, subtractSkipBytes = 46),
-                    gaugeMin = -1.0,
-                    gaugeMax = 1.0,
+                    gaugeMin = -0.3,
+                    gaugeMax = 1.65,
+                    warningThreshold = 1.45,
+                    criticalThreshold = 1.5,
                     decimals = 2,
                     enabled = false,
                 ),
