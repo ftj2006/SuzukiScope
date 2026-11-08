@@ -4,7 +4,7 @@ Summary of 27 pages of the SZ Viewer author's Russian blog, read 2026-11-08. Tex
 
 ## Applied or relevant to SuzukiScope
 
-- **No ATAT1/ATAT2 on Suzuki CAN.** Adaptive timing shrinks the wait and cuts off the tail of slow multi-frame replies. The author tunes timeouts per request instead (2014/03/elm327.html). Removed in 1.5.46.
+- **No ATAT1/ATAT2 on Suzuki CAN.** Adaptive timing shrinks the wait and cuts off the tail of slow multi-frame replies. The author tunes timeouts per request instead (2014/03/elm327.html). Removed in 1.5.46 (see [FIELD_NOTES.md](FIELD_NOTES.md)).
 - **Don't give the ELM an expected response count** (e.g. `2100 1`): the Suzuki CAN bus sends small packets whose count isn't known in advance (2014/03/elm327.html).
 - **`ATD` instead of `ATZ`** for a fast settings reset, and **`ATTP` instead of `ATSP`** so the adapter's saved default isn't changed. SuzukiScope already does both.
 - **Clone check:** `ATD`, `ATTP5` and `ATTP6` must all answer `OK`. Chinese "v2.1" and trimmed "v1.5" clones fake or lack these and can't run the Suzuki protocol, even if generic OBD apps work (2015/11/elm327-2015.html).

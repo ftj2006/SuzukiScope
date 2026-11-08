@@ -16,12 +16,16 @@ the full breakdown of what's different and why.
 
 - Configurable live-data gauges (Dashboard tab) — enable/disable, drag-to-reorder, set gauge
   maximum + caution/warning thresholds per field, independent "display" vs "record" toggles
-- Wi-Fi and Bluetooth SPP ELM327 connection, with a live connection-log export for diagnosing
-  real-hardware adapter/vehicle quirks
+- Gauge scales learnt from the vehicle across drives (they only ever widen the built-in
+  scale), session Peak markers, and grey gauges when their data stops updating
+- Wi-Fi and Bluetooth SPP ELM327 connection with automatic reconnect, and a connection log
+  (with phone Wi-Fi events and PERF timing) that can be shared from Config → Settings → bug icon
 - CSV export of logged sessions
 - DTC read (per module, with human-readable descriptions) — no "clear all", matches the
   original app's per-module behaviour
-- Android Auto support (read-only dashboard + logging controls on the head unit)
+- Android Auto dashboard with configurable rows: each row X-Large or Large with its own
+  width, gauges dragged into row slots in the Config tab; Connect/Record buttons only shown
+  when useful
 - A full 588-field catalogue extracted from the original app's decompiled sources, loadable
   in-app for advanced/exploratory use beyond the verified default gauge set
 
@@ -37,6 +41,12 @@ the full breakdown of what's different and why.
 
 ## Reference documentation
 
+- [CHANGELOG.md](CHANGELOG.md) — what changed in each published version.
+- [reference/FIELD_NOTES.md](reference/FIELD_NOTES.md) — what real-car, adapter and Android
+  Auto testing taught us (the test car rejects OBD-II mode 01, `21 00` timing, adapter
+  stability rules, head-unit layout quirks). Read before changing polling or the car screen.
+- [reference/SZ_VIEWER_BLOG_NOTES.md](reference/SZ_VIEWER_BLOG_NOTES.md) — summary of the SZ
+  Viewer author's blog: why Suzukis lack OBD-II, ELM327 timing advice, adapter compatibility.
 - [reference/SUZUKI_PROTOCOL_CUSTOMIZATIONS.md](reference/SUZUKI_PROTOCOL_CUSTOMIZATIONS.md) —
   everything this app does differently from generic OBD-II: init strings, K-Line fast-init
   and TesterPresent keep-alive, CAN manual flow control, the proprietary `0x21` service, DTC
@@ -79,10 +89,13 @@ the full breakdown of what's different and why.
 Requires `ANDROID_HOME` set and the Android SDK installed. Output APK:
 `androidApp/build/outputs/apk/debug/SuzukiScope-<version>-debug.apk`.
 
+Releases are built and published locally to the Play internal track (no CI); the steps are
+in [.github/copilot-instructions.md](.github/copilot-instructions.md).
+
 ## Status
 
-Protocol logic is traced from decompiled sources and verified via the in-app simulator, but
-**not yet field-tested against real hardware end-to-end**. See the "What's still unverified"
-section of `SUZUKI_PROTOCOL_CUSTOMIZATIONS.md` before your first real vehicle connection, and
-use the Dashboard's connection-log export (📋 icon) to capture raw AT traffic if anything
-doesn't behave as expected.
+Field-tested on a CAN Suzuki with an iCarsoft Wi-Fi ELM327 and an Android Auto head unit
+(see [reference/FIELD_NOTES.md](reference/FIELD_NOTES.md)). K-Line vehicles and other modules
+are still traced from decompiled sources and simulator-tested only — see the "What's still
+unverified" section of `SUZUKI_PROTOCOL_CUSTOMIZATIONS.md`, and share the connection log
+(Config → Settings → bug icon → Share) if anything doesn't behave as expected.
