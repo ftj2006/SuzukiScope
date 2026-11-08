@@ -51,6 +51,10 @@ class Elm327LiveDataSource(
         requestCache.clear()
     }
 
+    // CAN-UDS fields have no KWP response prefix; the adapter is initialised for one bus only.
+    override fun canPoll(field: FieldDefinition): Boolean =
+        (field.request.responsePrefixBytes == 0) == (protocol == Elm327Protocol.CAN_11BIT_500K)
+
     suspend fun connect() {
         ioLog.append(IoDirection.SENT, "opening transport ${transport.name}")
         try {

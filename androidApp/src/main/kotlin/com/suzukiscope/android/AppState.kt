@@ -363,10 +363,11 @@ object AppState {
         var source: Elm327LiveDataSource? = null
         try {
             _connectionStatus.value = "Preparing ${transport.name}..."
-            // ELM327 must be initialised for one bus at a time — pick CAN vs KWP based on
-            // whichever fields are currently enabled (responsePrefixBytes==0 means CAN-UDS).
+            // ELM327 must be initialised for one bus at a time — pick whichever most enabled fields
+            // use (responsePrefixBytes==0 means CAN-UDS); fields for the other bus are skipped.
             val enabled = dashboardViewModel.fields.value.filter { it.enabled }
-            val protocol = if (enabled.isNotEmpty() && enabled.all { it.request.responsePrefixBytes == 0 }) {
+            val canCount = enabled.count { it.request.responsePrefixBytes == 0 }
+            val protocol = if (canCount > 0 && canCount * 2 >= enabled.size) {
                 Elm327Protocol.CAN_11BIT_500K
             } else {
                 Elm327Protocol.KWP_FAST

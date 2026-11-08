@@ -53,6 +53,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
 
     /** Common ELM327 setup used by the original SZ Viewer before selecting a bus protocol. */
     suspend fun reset() {
+        discardPendingOutput()
         sendCommand("ATD")
         sendCommand("ATE0")
         sendCommand("ATL0")
@@ -67,6 +68,24 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATCAF1")
         sendCommand("ATCFC1")
         sendCommand("ATFCSM0")
+    }
+
+    /**
+     * After a reconnect the adapter can still be finishing the previous session's command (e.g. a
+     * bus init) and send its reply late, which shifts every following reply by one. A bare CR
+     * interrupts any running operation; whatever arrives before the line goes quiet is dropped.
+     */
+    private suspend fun discardPendingOutput() = mutex.withLock {
+        transport.write("\r".encodeToByteArray())
+        repeat(10) {
+            val stale = try {
+                transport.readUntil('>'.code.toByte(), 400)
+            } catch (e: Exception) {
+                return@withLock
+            }
+            if (stale.isEmpty()) return@withLock
+            ioLog?.append(IoDirection.RECEIVED, "discarded stale output: " + stale.decodeToString().replace("\r", "\\r"))
+        }
     }
 
     suspend fun initProtocol(protocol: Elm327Protocol) {

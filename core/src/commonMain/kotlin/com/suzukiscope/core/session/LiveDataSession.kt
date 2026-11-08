@@ -17,6 +17,9 @@ interface LiveDataSource {
      * for the same underlying data). No-op by default.
      */
     fun beginCycle() {}
+
+    /** False for fields this source can't read right now (e.g. they need the other bus protocol); those are skipped. */
+    fun canPoll(field: FieldDefinition): Boolean = true
 }
 
 /**
@@ -33,7 +36,7 @@ class LiveDataSession(
         val failures = HashMap<String, Int>()
         while (true) {
             source.beginCycle()
-            for (field in fieldsProvider()) {
+            for (field in fieldsProvider().filter(source::canPoll)) {
                 // A single field glitching on real hardware (timeout, malformed frame) shouldn't
                 // kill the whole polling loop - the source itself already logs the failure.
                 try {
