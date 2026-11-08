@@ -15,6 +15,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +31,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
@@ -122,6 +124,16 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.foundation.layout.Box(
                     Modifier.fillMaxSize().background(flashColor),
                 )
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxSize().safeDrawingPadding().padding(end = 4.dp, bottom = 2.dp),
+                    contentAlignment = androidx.compose.ui.Alignment.BottomEnd,
+                ) {
+                    Text(
+                        "v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    )
+                }
                 if (reconnectPrompt != null) {
                     AlertDialog(
                         onDismissRequest = { AppState.dismissReconnectPrompt() },
