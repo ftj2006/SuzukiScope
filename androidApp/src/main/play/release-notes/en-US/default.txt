@@ -1,0 +1,3 @@
+- Fixed: app failed to launch after the rename (1.5.31–1.5.32)
+- Fixed: Android Auto dashboard error ("title must be set")
+- Version number now shown on the home screen
