@@ -13,8 +13,15 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     private val _fields = LinkedHashMap<String, FieldDefinition>()
     val fields: List<FieldDefinition> get() = _fields.values.toList()
 
+    // Each field's built-in scale (code default or catalog), kept separately because learning overwrites gaugeMin/gaugeMax.
+    private val defaultRanges = HashMap<String, Pair<Double, Double>>()
+    fun defaultRange(id: String): Pair<Double, Double>? = defaultRanges[id]
+
     init {
-        initial.forEach { _fields[it.id] = it }
+        initial.forEach {
+            _fields[it.id] = it
+            defaultRanges[it.id] = it.gaugeMin to it.gaugeMax
+        }
     }
 
     fun add(field: FieldDefinition) { _fields[field.id] = field }
@@ -42,12 +49,26 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     }
     fun get(id: String): FieldDefinition? = _fields[id]
 
+    fun setAutoPlacement(id: String, autoRow: Int?, autoSlot: Int?) {
+        _fields[id]?.let { _fields[id] = it.copy(autoRow = autoRow, autoSlot = autoSlot) }
+    }
+
+    /** Puts [ids] first, in that order; every other field keeps its relative order after them. */
+    fun reorder(ids: List<String>) {
+        val reordered = LinkedHashMap<String, FieldDefinition>()
+        for (id in ids) _fields[id]?.let { reordered[id] = it }
+        for ((id, field) in _fields) if (id !in reordered) reordered[id] = field
+        _fields.clear()
+        _fields.putAll(reordered)
+    }
+
     /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
      * existing ones pick up catalog label changes. */
     fun mergeCatalog(catalog: List<FieldDefinition>) {
         for (field in catalog) {
             val existing = _fields[field.id]
             _fields[field.id] = existing?.copy(label = field.label) ?: field
+            if (field.id !in defaultRanges) defaultRanges[field.id] = field.gaugeMin to field.gaugeMax
         }
     }
 
@@ -89,6 +110,8 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 verifiedNoData = persisted.verifiedNoData,
                 learnedMin = persisted.learnedMin,
                 learnedMax = persisted.learnedMax,
+                autoRow = persisted.autoRow,
+                autoSlot = persisted.autoSlot,
             ) ?: persisted
         }
         for ((id, field) in _fields) {

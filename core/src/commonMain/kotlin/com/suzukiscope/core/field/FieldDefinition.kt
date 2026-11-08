@@ -40,6 +40,10 @@ data class FieldDefinition(
     /** Lowest/highest values seen on the real vehicle across drives; the gauge scale follows these once set. */
     val learnedMin: Double? = null,
     val learnedMax: Double? = null,
+    /** Android Auto row this field is placed in (see AutoLayoutConfig); null = the remaining rows. */
+    val autoRow: Int? = null,
+    /** Position within [autoRow] (0 = leftmost); null = first free slot. */
+    val autoSlot: Int? = null,
     /** Used instead of [request]/[decode] when the vehicle doesn't support this field's standard OBD-II PIDs. */
     val fallback: FieldFallback? = null,
 )

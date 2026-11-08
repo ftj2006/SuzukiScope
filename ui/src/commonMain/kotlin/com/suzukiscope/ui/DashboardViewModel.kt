@@ -78,6 +78,10 @@ class DashboardViewModel(
     private val _vehicleProtocol = MutableStateFlow(Elm327Protocol.CAN_11BIT_500K)
     val vehicleProtocol: StateFlow<Elm327Protocol> = _vehicleProtocol.asStateFlow()
     var vehicleProtocolSink: ((Elm327Protocol) -> Unit)? = null
+
+    private val _autoLayout = MutableStateFlow(com.suzukiscope.core.layout.AutoLayoutConfig())
+    val autoLayout: StateFlow<com.suzukiscope.core.layout.AutoLayoutConfig> = _autoLayout.asStateFlow()
+    var autoLayoutSink: ((com.suzukiscope.core.layout.AutoLayoutConfig) -> Unit)? = null
     private val connectionLogs = ArrayList<ConnectionLog>()
 
     /** Progress/result text for [probeAllFieldsForData]; null when no pass is running/just finished. */
@@ -193,7 +197,7 @@ class DashboardViewModel(
         val learnedMin = if (newLow || lo == null) value else lo
         val learnedMax = if (newHigh || hi == null) value else hi
         registry.setLearnedRange(id, learnedMin, learnedMax)
-        val (gaugeMin, gaugeMax) = learnedGaugeRange(learnedMin, learnedMax, listOfNotNull(field.warningThreshold, field.criticalThreshold))
+        val (gaugeMin, gaugeMax) = learnedScale(field, learnedMin, learnedMax)
         // Only republish fields when the rounded scale actually changes; this runs inside the polling loop.
         if (gaugeMin != field.gaugeMin || gaugeMax != field.gaugeMax) {
             registry.setGaugeMin(id, gaugeMin)
@@ -223,6 +227,47 @@ class DashboardViewModel(
         schedulePersist()
     }
 
+    /**
+     * Scale for a learned range: it only ever widens the field's built-in scale, and spans at least
+     * [MIN_SPAN_FRACTION] of its magnitude, so readings taken while parked can't shrink it to a sliver.
+     */
+    private fun learnedScale(field: FieldDefinition, learnedMin: Double, learnedMax: Double): Pair<Double, Double> {
+        var lo = learnedMin
+        var hi = learnedMax
+        registry.defaultRange(field.id)?.let { (defaultMin, defaultMax) ->
+            lo = minOf(lo, defaultMin)
+            hi = maxOf(hi, defaultMax)
+        }
+        val minSpan = maxOf(kotlin.math.abs(lo), kotlin.math.abs(hi)) * MIN_SPAN_FRACTION
+        if (hi - lo < minSpan) {
+            val mid = (lo + hi) / 2
+            lo = mid - minSpan / 2
+            hi = mid + minSpan / 2
+        }
+        return learnedGaugeRange(lo, hi, listOfNotNull(field.warningThreshold, field.criticalThreshold))
+    }
+
+    /** Widens any gauge whose saved scale is narrower than [learnedScale] allows (fixes scales learned before that rule). */
+    fun widenLearnedScales() {
+        var changed = false
+        for (field in registry.fields) {
+            val lo = field.learnedMin ?: continue
+            val hi = field.learnedMax ?: continue
+            val (scaleMin, scaleMax) = learnedScale(field, lo, hi)
+            val newMin = minOf(field.gaugeMin, scaleMin)
+            val newMax = maxOf(field.gaugeMax, scaleMax)
+            if (newMin != field.gaugeMin || newMax != field.gaugeMax) {
+                registry.setGaugeMin(field.id, newMin)
+                registry.setGaugeMax(field.id, newMax)
+                changed = true
+            }
+        }
+        if (changed) {
+            _fields.value = registry.fields
+            persist()
+        }
+    }
+
     /** Forgets a field's learned range so it is re-learned from the next drive. */
     fun resetLearnedRange(id: String) {
         registry.setLearnedRange(id, null, null)
@@ -247,6 +292,7 @@ class DashboardViewModel(
 
     private companion object {
         const val WIDEN_AFTER_READINGS = 3
+        const val MIN_SPAN_FRACTION = 0.2
         const val STALE_MS = 2000L
     }
 
@@ -329,6 +375,24 @@ class DashboardViewModel(
 
     fun setFieldEnabled(id: String, enabled: Boolean) {
         registry.setEnabled(id, enabled)
+        // Newly shown and hidden fields both belong to the remaining rows.
+        registry.setAutoPlacement(id, null, null)
+        _fields.value = registry.fields
+        persist()
+    }
+
+    fun setAutoLayout(config: com.suzukiscope.core.layout.AutoLayoutConfig) {
+        _autoLayout.value = config
+        autoLayoutSink?.invoke(config)
+    }
+
+    /**
+     * Applies a drag in the dashboard field list: [order] is the enabled fields in their new
+     * order, [placements] each one's Android Auto row and slot (null row = remaining rows).
+     */
+    fun arrangeDashboard(order: List<String>, placements: Map<String, com.suzukiscope.core.layout.Placement>) {
+        for (id in order) placements[id]?.let { registry.setAutoPlacement(id, it.row, it.slot) }
+        registry.reorder(order)
         _fields.value = registry.fields
         persist()
     }
@@ -409,6 +473,7 @@ class DashboardViewModel(
         registry.mergeCatalog(catalog)
         _fields.value = registry.fields
         persist()
+        widenLearnedScales()
     }
 
     /**

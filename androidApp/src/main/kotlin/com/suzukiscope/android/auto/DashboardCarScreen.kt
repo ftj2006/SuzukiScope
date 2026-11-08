@@ -21,6 +21,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.suzukiscope.android.AppState
 import com.suzukiscope.android.transport.findBondedElm327Device
+import com.suzukiscope.core.layout.Placement
+import com.suzukiscope.core.layout.TileSize
+import com.suzukiscope.core.layout.arrange
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -28,22 +31,6 @@ private const val REFRESH_MS = 300L
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
-// Extra-large tiles per row on the tested head unit.
-private const val EXTRA_LARGE_COLUMNS = 4
-
-/** Splits [items] into as few rows of at most [columns] as possible, as evenly as possible (6 -> 3 + 3). */
-internal fun <T> balancedRows(items: List<T>, columns: Int): List<List<T>> {
-    if (items.isEmpty()) return emptyList()
-    val rows = (items.size + columns - 1) / columns
-    val result = ArrayList<List<T>>()
-    var start = 0
-    for (row in 0 until rows) {
-        val size = items.size / rows + if (row < items.size % rows) 1 else 0
-        result.add(items.subList(start, start + size))
-        start += size
-    }
-    return result
-}
 
 /**
  * Grid slots (gauge index, or null for an invisible spacer) that spread [count] gauges evenly
@@ -98,6 +85,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                     lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                         launch { AppState.connectionStatus.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.values.collect { dirty = true } }
+                        launch { AppState.dashboardViewModel.fields.collect { dirty = true } }
+                        launch { AppState.dashboardViewModel.autoLayout.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.peaks.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.staleFields.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.isLogging.collect { dirty = true } }
@@ -196,26 +185,27 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                 .setBackgroundColor(connectionColor(status, isConnected))
                 .setOnClickListener(onConnect)
                 .build()
+            // Floating buttons cover the bottom-right gauge, so only show the ones that are useful right now.
+            val linkUp = connectionColor(status, isConnected) == CarColor.GREEN
+            val fabs = listOfNotNull(recordFab.takeIf { linkUp || isLogging }, connectFab.takeIf { !linkUp })
 
             // The plain grid's largest tile leaves most of the screen empty with only a few gauges;
             // the sectioned grid (Car API 8) offers an extra-large tile size.
             if (carContext.carAppApiLevel >= 8 && fields.isNotEmpty()) {
-                // The head unit only rendered the first row of a single extra-large section, so each row gets its own.
+                // Rows and tile sizes come from the Config tab; each row is its own section, padded to its full width.
                 val builder = SectionedItemTemplate.Builder()
                     .setScrollStatePersistenceStrategy(SectionedItemTemplate.SCROLL_STATE_PRESERVE_INDEX)
-                for (row in balancedRows(gaugeItems, EXTRA_LARGE_COLUMNS)) {
+                for (row in AppState.dashboardViewModel.autoLayout.value.arrange(fields.map { Placement(it.autoRow, it.autoSlot) })) {
                     builder.addSection(
                         GridSection.Builder()
-                            .setItemSize(GridSection.ITEM_SIZE_EXTRA_LARGE)
+                            .setItemSize(if (row.size == TileSize.EXTRA_LARGE) GridSection.ITEM_SIZE_EXTRA_LARGE else GridSection.ITEM_SIZE_LARGE)
                             .setItemImageShape(GridSection.ITEM_IMAGE_SHAPE_CIRCLE)
-                            .setItems(row)
+                            .setItems(row.slots.map { slot -> if (slot == null) blankItem() else gaugeItems[slot] })
                             .build(),
                     )
                 }
-                return builder
-                    .addAction(recordFab)
-                    .addAction(connectFab)
-                    .build()
+                fabs.forEach { builder.addAction(it) }
+                return builder.build()
             }
 
             // No title/header action/action strip hides the host's header bar entirely; the two
@@ -224,8 +214,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                 .setItemSize(GridTemplate.ITEM_SIZE_LARGE)
                 .setItemImageShape(GridTemplate.ITEM_IMAGE_SHAPE_CIRCLE)
                 .setSingleList(itemListBuilder.build())
-                .addAction(recordFab)
-                .addAction(connectFab)
+                .apply { fabs.forEach { addAction(it) } }
                 .build()
         }
 
@@ -243,6 +232,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
             .setActionStrip(actionStrip)
             .build()
     }
+
+    private fun blankItem(): GridItem = GridItem.Builder().setImage(GaugeIcon.blankIcon(), GridItem.IMAGE_TYPE_LARGE).build()
 
     /** With no header there's no status text, so the connect button's colour carries the state. */
     private fun connectionColor(status: String, isConnected: Boolean): CarColor = when {

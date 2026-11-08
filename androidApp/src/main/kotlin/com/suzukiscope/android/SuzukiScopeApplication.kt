@@ -13,6 +13,7 @@ class SuzukiScopeApplication : Application() {
         // config/auto-reconnect must be ready before the first car screen is built either way.
         AppState.initPersistence(File(filesDir, "field-config.json"))
         AppState.initVehicleProtocol(File(filesDir, "vehicle-protocol.txt"))
+        AppState.initAutoLayout(File(filesDir, "auto-layout.json"))
         AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
         AppState.initLastConnection(File(filesDir, "last-connection.txt"))
         AppState.initDtcModulesPersistence(File(filesDir, "dtc-unresponsive-modules.txt"))

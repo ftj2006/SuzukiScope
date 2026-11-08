@@ -1,3 +1,5 @@
-- Android Auto: extra-large gauges in rows of up to 4 so all gauges show; scroll position kept on refresh
-- Connection log records phone Wi-Fi changes and reconnect attempts
-- Fixed a crash when opening exports on phones without a folder picker
+- Android Auto layout set in Config: rows with X-Large/Large size and width; drag gauges into row slots
+- Android Auto: Connect button only when disconnected, Record only when connected
+- Gauge scales only widen from learned readings (no more hair-trigger scales)
+- Steady value text size on Android Auto
+- Removing a gauge now updates Android Auto straight away

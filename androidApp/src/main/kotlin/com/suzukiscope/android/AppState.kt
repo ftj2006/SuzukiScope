@@ -162,6 +162,7 @@ object AppState {
         dashboardViewModel.refreshFields()
         resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v2.txt"))
         resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v3.txt"), setOf("engine.boost_pressure", "engine.boost_relative"))
+        dashboardViewModel.widenLearnedScales()
     }
 
     // Applies the current default ranges/thresholds to the default gauges ([only] those ids, if given)
@@ -183,6 +184,15 @@ object AppState {
         dashboardViewModel.setVehicleProtocol(saved ?: dashboardViewModel.inferVehicleProtocol())
         dashboardViewModel.vehicleProtocolSink = { protocol ->
             runCatching { file.parentFile?.mkdirs(); file.writeText(protocol.name) }
+        }
+    }
+
+    /** Loads the saved Android Auto row layout, if any, and saves every change to it. */
+    fun initAutoLayout(file: File) {
+        runCatching { com.suzukiscope.core.layout.AutoLayoutConfig.fromJson(file.readText()) }.getOrNull()
+            ?.let { dashboardViewModel.setAutoLayout(it) }
+        dashboardViewModel.autoLayoutSink = { config ->
+            runCatching { file.parentFile?.mkdirs(); file.writeText(config.toJson()) }
         }
     }
 

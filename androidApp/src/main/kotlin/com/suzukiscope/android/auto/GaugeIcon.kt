@@ -81,7 +81,7 @@ object GaugeIcon {
             isFakeBoldText = true
             // Tabular digits so the number doesn't shift as individual digits change.
             fontFeatureSettings = "tnum"
-            textSize = stableValueTextSize(this, listOf(value, min, max), decimals, unit, radius - stroke)
+            textSize = stableValueTextSize(this, listOf(min, max), decimals, unit, radius - stroke)
         }
         val valueBaselineY = centerY + textPaint.textSize * 0.35f
         canvas.drawText(text, centerX, valueBaselineY, textPaint)
@@ -120,7 +120,8 @@ object GaugeIcon {
     private fun stableValueTextSize(paint: Paint, values: List<Double>, decimals: Int?, unit: String, innerRadius: Float): Float {
         val base = SIZE_PX * 0.30f
         paint.textSize = base
-        val widest = values.maxOf { paint.measureText(formatValue(it, decimals) + valueSuffix(unit)) }
+        // Without fixed decimals a value can show one decimal place (e.g. "10.2%"), so measure the ends that way too.
+        val widest = values.maxOf { paint.measureText(formatValue(it, decimals ?: 1) + valueSuffix(unit)) }
         val available = innerRadius * 2f * 0.8f
         return if (widest > available) base * available / widest else base
     }
