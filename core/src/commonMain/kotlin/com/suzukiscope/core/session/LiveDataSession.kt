@@ -36,7 +36,8 @@ class LiveDataSession(
         val failures = HashMap<String, Int>()
         while (true) {
             source.beginCycle()
-            for (field in fieldsProvider().filter(source::canPoll)) {
+            val fields = fieldsProvider().filter(source::canPoll)
+            for (field in fields) {
                 // A single field glitching on real hardware (timeout, malformed frame) shouldn't
                 // kill the whole polling loop - the source itself already logs the failure.
                 try {
@@ -52,7 +53,8 @@ class LiveDataSession(
                     delay(250L * (1L shl failureCount))
                 }
             }
-            delay(intervalMs)
+            // With nothing to poll, a zero interval would spin.
+            delay(if (fields.isEmpty()) 250 else intervalMs)
         }
     }
 }

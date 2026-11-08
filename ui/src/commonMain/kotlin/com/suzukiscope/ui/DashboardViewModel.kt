@@ -85,9 +85,14 @@ class DashboardViewModel(
     val fieldProbeStatus: StateFlow<String?> = _fieldProbeStatus.asStateFlow()
 
     private var pollJob: Job? = null
-    private var session = LiveDataSession(source, fieldsProvider = {
-        _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) }
-    })
+    private var session = newSession()
+
+    // The adapter round trip already paces real hardware, so don't add an idle gap between cycles.
+    private fun newSession() = LiveDataSession(
+        source,
+        fieldsProvider = { _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) } },
+        intervalMs = if (source is Elm327LiveDataSource) 0 else 40,
+    )
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
     private var currentIoLogId: String? = null
 
@@ -223,9 +228,7 @@ class DashboardViewModel(
         (source as? Elm327LiveDataSource)?.stopKeepAlive()
         source = newSource
         (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
-        session = LiveDataSession(source, fieldsProvider = {
-            _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) }
-        })
+        session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
         fieldsInCritical.clear()

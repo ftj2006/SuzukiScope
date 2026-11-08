@@ -80,19 +80,26 @@ fun DashboardScreen(
                 androidx.compose.material3.Icon(Icons.Outlined.FileDownload, contentDescription = "Export")
             }
         }
-        LazyVerticalGrid(columns = GridCells.Adaptive(minSize = 160.dp), modifier = Modifier.fillMaxSize()) {
-            items(fields.filter { it.enabled }, key = { it.id }) { field ->
-                Gauge(
-                    label = field.label,
-                    unit = field.unit,
-                    value = values[field.id] ?: field.gaugeMin,
-                    min = field.gaugeMin,
-                    max = field.gaugeMax,
-                    peak = peaks[field.id],
-                    warningThreshold = field.warningThreshold,
-                    criticalThreshold = field.criticalThreshold,
-                    decimals = field.decimals,
-                )
+        val enabledFields = fields.filter { it.enabled }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            // Spread gauges evenly over the rows they need (6 across a 5-wide screen -> 3 + 3, not 5 + 1).
+            val maxColumns = (maxWidth / 160.dp).toInt().coerceAtLeast(1)
+            val rows = (enabledFields.size + maxColumns - 1) / maxColumns
+            val columns = if (rows == 0) 1 else (enabledFields.size + rows - 1) / rows
+            LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize()) {
+                items(enabledFields, key = { it.id }) { field ->
+                    Gauge(
+                        label = field.label,
+                        unit = field.unit,
+                        value = values[field.id] ?: field.gaugeMin,
+                        min = field.gaugeMin,
+                        max = field.gaugeMax,
+                        peak = peaks[field.id],
+                        warningThreshold = field.warningThreshold,
+                        criticalThreshold = field.criticalThreshold,
+                        decimals = field.decimals,
+                    )
+                }
             }
         }
     }

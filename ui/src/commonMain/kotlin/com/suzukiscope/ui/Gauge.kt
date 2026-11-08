@@ -1,5 +1,7 @@
 package com.suzukiscope.ui
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -41,6 +44,8 @@ fun Gauge(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Eases the arc between readings instead of jumping; the number still shows the exact value.
+        val shownValue by animateFloatAsState(value.toFloat(), tween(250), label = "gaugeValue")
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
                 val stroke = size.minDimension * 0.09f
@@ -59,7 +64,7 @@ fun Gauge(
                     style = Stroke(width = stroke, cap = StrokeCap.Round),
                 )
 
-                val fraction = ((value - min) / (max - min)).coerceIn(0.0, 1.0)
+                val fraction = ((shownValue - min) / (max - min)).coerceIn(0.0, 1.0)
                 drawArc(
                     color = gaugeColor(fraction, value, warningThreshold, criticalThreshold),
                     startAngle = START_ANGLE,

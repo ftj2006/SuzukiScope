@@ -160,16 +160,18 @@ object AppState {
         persistFile = file
         FieldRegistryStore.load(dashboardViewModel.registry, file)
         dashboardViewModel.refreshFields()
-        resetDefaultScalesOnce(File(file.parentFile, "gauge-scale-reset-v1.txt"))
+        resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v2.txt"))
     }
 
-    // Before 1.5.39 a single garbled reading could permanently widen a gauge (e.g. oil/water to
-    // 220); put the default gauges back to their baseline range once.
+    // Applies the current default ranges/thresholds to the default gauges once, replacing older
+    // defaults and glitch-stretched scales; learning then starts fresh from these.
     private fun resetDefaultScalesOnce(marker: File) {
         if (marker.exists()) return
         com.suzukiscope.core.field.FieldRegistry.withExampleDefaults().fields.forEach { default ->
             dashboardViewModel.setGaugeMin(default.id, default.gaugeMin)
             dashboardViewModel.setGaugeMax(default.id, default.gaugeMax)
+            dashboardViewModel.setThresholds(default.id, default.warningThreshold, default.criticalThreshold)
+            dashboardViewModel.resetLearnedRange(default.id)
         }
         runCatching { marker.parentFile?.mkdirs(); marker.writeText("done") }
     }
