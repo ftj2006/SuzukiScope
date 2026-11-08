@@ -2,6 +2,7 @@ package com.suzukiscope.android.auto
 
 import androidx.car.app.CarContext
 import androidx.car.app.CarToast
+import androidx.car.app.constraints.ConstraintManager
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
@@ -22,6 +23,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val REFRESH_MS = 300L
+
+// Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
+private const val HOST_COLUMNS = 5
+
+/**
+ * Grid slots (gauge index, or null for an invisible spacer) that spread [count] gauges evenly
+ * over the rows they need and centre each row, e.g. 6 across 5 columns -> _ 0 1 2 _ / _ 3 4 5 _.
+ */
+internal fun centredSlots(count: Int, columns: Int): List<Int?> {
+    if (count == 0) return emptyList()
+    val rows = (count + columns - 1) / columns
+    val slots = ArrayList<Int?>()
+    var next = 0
+    for (row in 0 until rows) {
+        val inRow = count / rows + if (row < count % rows) 1 else 0
+        val left = (columns - inRow) / 2
+        repeat(left) { slots.add(null) }
+        repeat(inRow) { slots.add(next++) }
+        if (row < rows - 1) repeat(columns - inRow - left) { slots.add(null) }
+    }
+    return slots
+}
 
 /**
  * Android Auto dashboard: a 3-per-row grid of gauges mirroring whichever fields are
@@ -102,7 +125,18 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val isConnected = AppState.dashboardViewModel.isUsingHardwareSource()
 
         val itemListBuilder = ItemList.Builder()
-        for (field in fields) {
+        val gridLimit = runCatching {
+            carContext.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_GRID)
+        }.getOrDefault(fields.size)
+        val padded = centredSlots(fields.size, HOST_COLUMNS)
+        // Never let padding push real gauges past the host's item limit.
+        val slots = if (padded.size <= gridLimit) padded else fields.indices.toList()
+        for (slot in slots) {
+            if (slot == null) {
+                itemListBuilder.addItem(GridItem.Builder().setImage(GaugeIcon.blankIcon(), GridItem.IMAGE_TYPE_LARGE).build())
+                continue
+            }
+            val field = fields[slot]
             val value = values[field.id] ?: field.gaugeMin
             itemListBuilder.addItem(
                 GridItem.Builder()

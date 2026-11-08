@@ -154,6 +154,13 @@ object GaugeIcon {
         return CarIcon.Builder(IconCompat.createWithBitmap(bitmap)).build()
     }
 
+    /** Fully transparent tile used to pad and centre rows of gauges in the car grid. */
+    fun blankIcon(): CarIcon = blank
+
+    private val blank: CarIcon by lazy {
+        CarIcon.Builder(IconCompat.createWithBitmap(Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888))).build()
+    }
+
     /** Small icon-only status indicator (filled = recording, hollow ring = not) for the ActionStrip. */
     fun loggingStatusIcon(logging: Boolean): CarIcon = dotIcon(logging, Color.WHITE)
 
