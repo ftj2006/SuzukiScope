@@ -73,30 +73,60 @@ object GaugeIcon {
 
         val text = formatValue(value, decimals) + valueSuffix(unit)
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
+            // Readable white digits; only warning/critical recolour the number itself.
+            this.color = alertColor(value, warningThreshold, criticalThreshold) ?: Color.WHITE
             textAlign = Paint.Align.CENTER
-            textSize = SIZE_PX * (if (text.length > 4) 0.24f else 0.31f)
             isFakeBoldText = true
+            // Tabular digits so the number doesn't shift as individual digits change.
+            fontFeatureSettings = "tnum"
+            textSize = stableValueTextSize(this, listOf(value, min, max), decimals, unit, radius - stroke)
         }
-        val valueBaselineY = centerY + textPaint.textSize * 0.15f
+        val valueBaselineY = centerY + textPaint.textSize * 0.35f
         canvas.drawText(text, centerX, valueBaselineY, textPaint)
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = Color.argb(210, 190, 190, 190)
+            this.color = Color.argb(230, 210, 210, 210)
             textAlign = Paint.Align.CENTER
-            textSize = SIZE_PX * 0.09f
+            textSize = SIZE_PX * 0.10f
         }
-        canvas.drawText(shortLabel(label), centerX, valueBaselineY - textPaint.textSize * 0.85f - labelPaint.textSize * 0.3f, labelPaint)
+        canvas.drawText(shortLabel(label), centerX, valueBaselineY - textPaint.textSize - labelPaint.textSize * 0.2f, labelPaint)
 
-        val maxText = "max ${formatValue(peak ?: max, decimals)}${valueSuffix(unit)}"
-        val maxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = Color.argb(200, 190, 190, 190)
+        val smallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = Color.argb(220, 190, 190, 190)
             textAlign = Paint.Align.CENTER
-            textSize = SIZE_PX * 0.09f
+            textSize = SIZE_PX * 0.085f
+            fontFeatureSettings = "tnum"
         }
-        canvas.drawText(maxText, centerX, valueBaselineY + textPaint.textSize * 0.42f + maxPaint.textSize * 0.9f, maxPaint)
+        if (peak != null) {
+            canvas.drawText("Peak ${formatValue(peak, decimals)}${valueSuffix(unit)}", centerX, valueBaselineY + smallPaint.textSize * 1.4f, smallPaint)
+        }
+
+        // Scale ends sit just below the two ends of the arc, like the markings on a real gauge.
+        val scalePaint = Paint(smallPaint).apply { textSize = SIZE_PX * 0.075f }
+        val endY = centerY + radius * Math.sin(Math.toRadians(START_ANGLE.toDouble())).toFloat() + stroke * 0.6f + scalePaint.textSize
+        val endDx = radius * Math.cos(Math.toRadians(START_ANGLE.toDouble())).toFloat()
+        canvas.drawText(formatValue(min, decimals), centerX + endDx, endY, scalePaint)
+        canvas.drawText(formatValue(max, decimals), centerX - endDx, endY, scalePaint)
 
         return CarIcon.Builder(IconCompat.createWithBitmap(bitmap)).build()
+    }
+
+    /**
+     * One text size per gauge, sized for the widest number it can show (its scale ends, with sign),
+     * so the value doesn't jump between sizes as it gains or loses a digit or a minus sign.
+     */
+    private fun stableValueTextSize(paint: Paint, values: List<Double>, decimals: Int?, unit: String, innerRadius: Float): Float {
+        val base = SIZE_PX * 0.30f
+        paint.textSize = base
+        val widest = values.maxOf { paint.measureText(formatValue(it, decimals) + valueSuffix(unit)) }
+        val available = innerRadius * 2f * 0.8f
+        return if (widest > available) base * available / widest else base
+    }
+
+    private fun alertColor(value: Double, warningThreshold: Double?, criticalThreshold: Double?): Int? = when {
+        criticalThreshold != null && value >= criticalThreshold -> Color.rgb(0xE5, 0x39, 0x35)
+        warningThreshold != null && value >= warningThreshold -> Color.rgb(0xFF, 0xB3, 0x00)
+        else -> null
     }
 
     /** Short symbol appended straight onto the value instead of a separate unit label, e.g. "45\u00b0". */

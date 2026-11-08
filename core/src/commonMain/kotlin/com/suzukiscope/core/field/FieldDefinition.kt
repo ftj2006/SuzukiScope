@@ -40,7 +40,30 @@ data class FieldDefinition(
     /** Lowest/highest values seen on the real vehicle across drives; the gauge scale follows these once set. */
     val learnedMin: Double? = null,
     val learnedMax: Double? = null,
+    /** How often to read this field; null = automatic (see [effectiveRefresh]). */
+    val refresh: RefreshRate? = null,
+    /** Used instead of [request]/[decode] when the vehicle doesn't support this field's standard OBD-II PIDs. */
+    val fallback: FieldFallback? = null,
 )
+
+@Serializable
+enum class RefreshRate { FAST, SLOW }
+
+@Serializable
+data class FieldFallback(val request: RequestSpec, val decode: DecodeSpec)
+
+/** Standard OBD-II "show current data" service; [RequestSpec.params] are its PIDs. */
+const val OBD_MODE_CURRENT_DATA = 0x01
+
+/** Slowly changing values (temperatures, voltages, barometric pressure) default to [RefreshRate.SLOW]. */
+val FieldDefinition.effectiveRefresh: RefreshRate
+    get() = refresh ?: run {
+        val unitLower = unit.lowercase()
+        val labelLower = label.lowercase()
+        val slow = unit.contains('\u00B0') || unitLower in setOf("c", "degc", "v", "volt") ||
+            "temp" in labelLower || "barometric" in labelLower || "bar pressure" in labelLower || "voltage" in labelLower
+        if (slow) RefreshRate.SLOW else RefreshRate.FAST
+    }
 
 /** How to build the KWP2000/UDS request for this field. */
 @Serializable

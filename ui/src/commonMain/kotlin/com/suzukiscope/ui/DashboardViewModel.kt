@@ -113,11 +113,18 @@ class DashboardViewModel(
                 _values.value = _values.value + (reading.fieldId to reading.value)
                 _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
                 // Only real vehicle data teaches the scale; test data would teach a fake range.
-                if (isUsingHardwareSource()) learnRange(reading.fieldId, reading.value)
+                if (isUsingHardwareSource()) {
+                    learnRange(reading.fieldId, reading.value)
+                    clearNoDataMark(reading.fieldId)
+                }
                 checkCritical(reading.fieldId, reading.value)
+                // Peak = highest value since connecting (or since recording started), shown on every gauge.
+                val peak = _peaks.value[reading.fieldId]
+                if (peak == null || reading.value > peak) {
+                    _peaks.value = _peaks.value + (reading.fieldId to reading.value)
+                }
                 if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
                     recorder.record(reading)
-                    _peaks.value = _peaks.value + (reading.fieldId to (recorder.peak(reading.fieldId) ?: reading.value))
                 }
             }
         }
@@ -177,6 +184,21 @@ class DashboardViewModel(
             kotlinx.coroutines.delay(10_000)
             persist()
         }
+    }
+
+    // A field that was marked "no data" by an earlier test (e.g. one run on the wrong protocol)
+    // but now returns real readings is clearly fine; unmark it so it isn't hidden in Config.
+    private fun clearNoDataMark(id: String) {
+        if (registry.get(id)?.verifiedNoData != true) return
+        registry.setVerifiedNoData(id, false)
+        _fields.value = registry.fields
+        schedulePersist()
+    }
+
+    fun setRefresh(id: String, refresh: com.suzukiscope.core.field.RefreshRate) {
+        registry.setRefresh(id, refresh)
+        _fields.value = registry.fields
+        persist()
     }
 
     /** Forgets a field's learned range so it is re-learned from the next drive. */
@@ -245,6 +267,7 @@ class DashboardViewModel(
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
+        _peaks.value = emptyMap()
         fieldsInCritical.clear()
         lastReadingAtMs = currentTimeMillis()
         if (wasRunning || newSource is Elm327LiveDataSource) start()
@@ -376,7 +399,7 @@ class DashboardViewModel(
             return
         }
         val candidates = registry.fields.filter { (it.request.responsePrefixBytes == 0) == (liveSource.protocol == Elm327Protocol.CAN_11BIT_500K) }
-        liveSource.beginCycle()
+        liveSource.beginCycle(emptyList())
         var withData = 0
         var noData = 0
         for ((index, field) in candidates.withIndex()) {

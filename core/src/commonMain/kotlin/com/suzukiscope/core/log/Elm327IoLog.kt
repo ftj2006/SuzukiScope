@@ -16,12 +16,13 @@ data class IoLogEntry(val timestampMs: Long, val direction: IoDirection, val tex
  * responses) on the first few real vehicle connections — safe to remove/ignore once the
  * protocol handling has been proven against real hardware.
  */
-class Elm327IoLog(private val maxEntries: Int = 4000) {
-    private val entries = ArrayList<IoLogEntry>()
+// Sized to hold several minutes of polling plus the periodic PERF summaries.
+class Elm327IoLog(private val maxEntries: Int = 20_000) {
+    private val entries = ArrayDeque<IoLogEntry>()
 
     fun append(direction: IoDirection, text: String) {
-        entries.add(IoLogEntry(currentTimeMillis(), direction, text))
-        if (entries.size > maxEntries) entries.removeAt(0)
+        entries.addLast(IoLogEntry(currentTimeMillis(), direction, text))
+        if (entries.size > maxEntries) entries.removeFirst()
     }
 
     fun snapshot(): List<IoLogEntry> = entries.toList()

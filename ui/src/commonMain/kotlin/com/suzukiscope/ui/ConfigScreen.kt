@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.suzukiscope.core.field.FieldDefinition
+import com.suzukiscope.core.field.RefreshRate
+import com.suzukiscope.core.field.effectiveRefresh
 import com.suzukiscope.core.elm327.Elm327Protocol
 import com.suzukiscope.core.elm327.busProtocol
 import androidx.compose.material3.DropdownMenu
@@ -61,12 +63,13 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
     var pendingProtocol by remember { mutableStateOf<Elm327Protocol?>(null) }
     val busFields = fields.filter { it.busProtocol == vehicleProtocol }
     val filtered = (if (filter.isBlank()) busFields else busFields.filter { it.label.contains(filter, ignoreCase = true) })
-        .filter { showNoDataFields || !it.verifiedNoData }
+        // Selected fields always stay listed, even if a field test once marked them "no data".
+        .filter { it.enabled || showNoDataFields || !it.verifiedNoData }
     val visible = filtered.sortedByDescending { it.enabled }
     val debugLogsEnabled by viewModel.debugLogsEnabled.collectAsState()
     val testDataEnabled by viewModel.testDataEnabled.collectAsState()
     val fieldProbeStatus by viewModel.fieldProbeStatus.collectAsState()
-    val noDataCount = fields.count { it.verifiedNoData }
+    val noDataCount = busFields.count { it.verifiedNoData && !it.enabled }
     val coroutineScope = rememberCoroutineScope()
 
     editingField?.let { field ->
@@ -74,6 +77,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
             field = field,
             onDismiss = { editingField = null },
             onResetLearned = { viewModel.resetLearnedRange(field.id); editingField = null },
+            onSetRefresh = { viewModel.setRefresh(field.id, it) },
             onSave = { min, max, warning, critical ->
                 min?.let { viewModel.setGaugeMin(field.id, it) }
                 max?.let { viewModel.setGaugeMax(field.id, it) }
@@ -126,7 +130,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it },
-            label = { Text("Filter fields (${busFields.size} total, ${busFields.count { it.enabled }} shown)") },
+            label = { Text("Search fields (${visible.size} listed, ${busFields.count { it.enabled }} selected)") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -253,6 +257,7 @@ private fun ThresholdDialog(
     field: FieldDefinition,
     onDismiss: () -> Unit,
     onResetLearned: () -> Unit,
+    onSetRefresh: (RefreshRate) -> Unit,
     onSave: (min: Double?, max: Double?, warning: Double?, critical: Double?) -> Unit,
 ) {
     var minText by remember(field.id) { mutableStateOf(field.gaugeMin.toString()) }
@@ -298,6 +303,18 @@ private fun ThresholdDialog(
                 Text(learned, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 if (field.learnedMin != null) {
                     TextButton(onClick = onResetLearned) { Text("Reset learned range") }
+                }
+                var refresh by remember(field.id) { mutableStateOf(field.effectiveRefresh) }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Text("Update", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                    RefreshRate.entries.forEach { rate ->
+                        androidx.compose.material3.FilterChip(
+                            selected = refresh == rate,
+                            onClick = { refresh = rate; onSetRefresh(rate) },
+                            label = { Text(if (rate == RefreshRate.FAST) "Fast" else "Slow (every 3 s)") },
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
             }
         },

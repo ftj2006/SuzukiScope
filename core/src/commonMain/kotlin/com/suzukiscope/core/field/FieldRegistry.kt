@@ -40,6 +40,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     fun setLearnedRange(id: String, min: Double?, max: Double?) {
         _fields[id]?.let { _fields[id] = it.copy(learnedMin = min, learnedMax = max) }
     }
+    fun setRefresh(id: String, refresh: RefreshRate?) {
+        _fields[id]?.let { _fields[id] = it.copy(refresh = refresh) }
+    }
     fun get(id: String): FieldDefinition? = _fields[id]
 
     /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
@@ -89,6 +92,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 verifiedNoData = persisted.verifiedNoData,
                 learnedMin = persisted.learnedMin,
                 learnedMax = persisted.learnedMax,
+                refresh = persisted.refresh,
             ) ?: persisted
         }
         for ((id, field) in _fields) {
@@ -99,6 +103,17 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     }
 
     companion object {
+        // Suzuki engine block (mode 0x21, local id 0x00): ~150 bytes, so it is slow on cheap adapters.
+        private val SUZUKI_ENGINE_00 = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0)
+
+        // Standard OBD-II PIDs: a few bytes each, batched into one request per cycle for the fast gauges.
+        private fun obd(vararg pids: Int) = RequestSpec(
+            targetAddress = 2016,
+            mode = OBD_MODE_CURRENT_DATA,
+            params = pids.toList(),
+            responsePrefixBytes = 0,
+            responseSuffixBytes = 0,
+        )
         /**
          * Default gauges: Oil Temperature, Water Temperature, Boost Pressure, RPM, Throttle
          * Position, Speed — all read from a single verified request (mode 0x21,
@@ -139,9 +154,10 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     id = "engine.boost_pressure",
                     label = "Boost (absolute)",
                     unit = "bar",
-                    // Catalog entry is raw kPa (scale=1.0); 0.01 converts to bar.
-                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
-                    decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01),
+                    // OBD PID 0B manifold absolute pressure (kPa); 0.01 converts to bar.
+                    request = obd(0x0B),
+                    decode = DecodeSpec(skipBytes = 2, byteLength = 1, scale = 0.01),
+                    fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01)),
                     gaugeMin = 0.0,
                     gaugeMax = 2.7,
                     decimals = 2,
@@ -150,9 +166,11 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     id = "engine.boost_relative",
                     label = "Boost (relative)",
                     unit = "bar",
-                    // Manifold pressure minus barometric pressure (both kPa in the same 21 00 reply), in bar.
-                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
-                    decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01, subtractSkipBytes = 46),
+                    // OBD PID 0B manifold pressure minus PID 33 barometric pressure (kPa), in bar.
+                    // Payload is 41 0B <map> 33 <baro>, so baro sits at offset 4.
+                    request = obd(0x0B, 0x33),
+                    decode = DecodeSpec(skipBytes = 2, byteLength = 1, scale = 0.01, subtractSkipBytes = 4),
+                    fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01, subtractSkipBytes = 46)),
                     gaugeMin = -0.3,
                     gaugeMax = 1.65,
                     warningThreshold = 1.45,
@@ -164,8 +182,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     id = "engine.rpm",
                     label = "Engine RPM",
                     unit = "rpm",
-                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
-                    decode = DecodeSpec(skipBytes = 37, byteLength = 2, scale = 0.25),
+                    request = obd(0x0C),
+                    decode = DecodeSpec(skipBytes = 2, byteLength = 2, scale = 0.25),
+                    fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 37, byteLength = 2, scale = 0.25)),
                     gaugeMin = 0.0,
                     gaugeMax = 7000.0,
                     warningThreshold = 6000.0,
@@ -176,8 +195,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     id = "engine.throttle",
                     label = "Throttle Position",
                     unit = "%",
-                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
-                    decode = DecodeSpec(skipBytes = 66, byteLength = 1, scale = 0.39215686274509803),
+                    request = obd(0x11),
+                    decode = DecodeSpec(skipBytes = 2, byteLength = 1, scale = 0.39215686274509803),
+                    fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 66, byteLength = 1, scale = 0.39215686274509803)),
                     gaugeMin = 0.0,
                     gaugeMax = 100.0,
                 ),
@@ -185,8 +205,9 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     id = "engine.speed",
                     label = "Speed",
                     unit = "km/h",
-                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
-                    decode = DecodeSpec(skipBytes = 42, byteLength = 1),
+                    request = obd(0x0D),
+                    decode = DecodeSpec(skipBytes = 2, byteLength = 1),
+                    fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 42, byteLength = 1)),
                     gaugeMin = 100.0,
                     gaugeMax = 160.0,
                     warningThreshold = 140.0,

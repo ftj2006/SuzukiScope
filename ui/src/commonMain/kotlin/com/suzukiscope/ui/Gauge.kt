@@ -100,22 +100,38 @@ fun Gauge(
                 peak?.let { tick(it, Color(0xFFFFFFFF), 0.28f) }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                val valueColor = gaugeColor(
-                    ((value - min) / (max - min)).coerceIn(0.0, 1.0),
-                    value,
-                    warningThreshold,
-                    criticalThreshold,
-                )
+                // White digits for readability; only warning/critical recolour the number.
+                val valueColor = when {
+                    criticalThreshold != null && value >= criticalThreshold -> Color(0xFFE53935)
+                    warningThreshold != null && value >= warningThreshold -> Color(0xFFFFB300)
+                    else -> Color.White
+                }
                 Text(
                     formatValue(value, decimals),
-                    style = androidx.compose.material3.MaterialTheme.typography.headlineMedium,
+                    // Tabular digits keep the number from shifting as individual digits change.
+                    style = androidx.compose.material3.MaterialTheme.typography.headlineMedium
+                        .copy(fontFeatureSettings = "tnum", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     color = valueColor,
                 )
                 Text(unit, style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                peak?.let {
+                    Text(
+                        "Peak ${formatValue(it, decimals)}",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                    )
+                }
+            }
+            // Scale ends under the two ends of the arc, like the markings on a real gauge.
+            androidx.compose.foundation.layout.Row(
+                Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(horizontal = 24.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            ) {
+                val scaleStyle = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum")
+                Text(formatValue(min, decimals), style = scaleStyle, color = Color(0xFFBDBDBD))
+                Text(formatValue(max, decimals), style = scaleStyle, color = Color(0xFFBDBDBD))
             }
         }
         Text(label, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-        peak?.let { Text("peak: ${formatValue(it, decimals)} $unit", style = androidx.compose.material3.MaterialTheme.typography.labelSmall) }
     }
 }
 
