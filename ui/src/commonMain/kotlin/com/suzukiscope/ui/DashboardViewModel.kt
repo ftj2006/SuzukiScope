@@ -174,6 +174,11 @@ class DashboardViewModel(
     /** True once the adapter link itself has failed, so reconnecting needn't wait for the stall timeout. */
     fun isTransportBroken(): Boolean = (source as? Elm327LiveDataSource)?.transportBroken == true
 
+    /** Notes a phone-side event (e.g. Wi-Fi change) in the adapter log so it lines up with the traffic. */
+    fun logConnectionEvent(message: String) {
+        (source as? Elm327LiveDataSource)?.ioLog?.append(com.suzukiscope.core.log.IoDirection.RECEIVED, message)
+    }
+
     /**
      * Learns each field's real operating range from the vehicle across drives (persisted), and
      * scales its gauge to that range. The first drives are jumpy; it settles as extremes are seen.

@@ -28,6 +28,22 @@ private const val REFRESH_MS = 300L
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
+// Extra-large tiles per row on the tested head unit.
+private const val EXTRA_LARGE_COLUMNS = 4
+
+/** Splits [items] into as few rows of at most [columns] as possible, as evenly as possible (6 -> 3 + 3). */
+internal fun <T> balancedRows(items: List<T>, columns: Int): List<List<T>> {
+    if (items.isEmpty()) return emptyList()
+    val rows = (items.size + columns - 1) / columns
+    val result = ArrayList<List<T>>()
+    var start = 0
+    for (row in 0 until rows) {
+        val size = items.size / rows + if (row < items.size % rows) 1 else 0
+        result.add(items.subList(start, start + size))
+        start += size
+    }
+    return result
+}
 
 /**
  * Grid slots (gauge index, or null for an invisible spacer) that spread [count] gauges evenly
@@ -184,14 +200,19 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
             // The plain grid's largest tile leaves most of the screen empty with only a few gauges;
             // the sectioned grid (Car API 8) offers an extra-large tile size.
             if (carContext.carAppApiLevel >= 8 && fields.isNotEmpty()) {
-                return SectionedItemTemplate.Builder()
-                    .addSection(
+                // The head unit only rendered the first row of a single extra-large section, so each row gets its own.
+                val builder = SectionedItemTemplate.Builder()
+                    .setScrollStatePersistenceStrategy(SectionedItemTemplate.SCROLL_STATE_PRESERVE_INDEX)
+                for (row in balancedRows(gaugeItems, EXTRA_LARGE_COLUMNS)) {
+                    builder.addSection(
                         GridSection.Builder()
                             .setItemSize(GridSection.ITEM_SIZE_EXTRA_LARGE)
                             .setItemImageShape(GridSection.ITEM_IMAGE_SHAPE_CIRCLE)
-                            .setItems(gaugeItems)
+                            .setItems(row)
                             .build(),
                     )
+                }
+                return builder
                     .addAction(recordFab)
                     .addAction(connectFab)
                     .build()

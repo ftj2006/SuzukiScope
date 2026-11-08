@@ -249,7 +249,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun exportFiles(files: List<com.suzukiscope.ui.DashboardViewModel.ExportFile>) {
-        startActivity(ExportStore.openFolderIntent(this))
+        try {
+            startActivity(ExportStore.openFolderIntent(this))
+        } catch (_: android.content.ActivityNotFoundException) {
+            // Some phones (e.g. Honor) ship without a file picker that can open a folder.
+            android.widget.Toast.makeText(this, "Saved in Documents/SuzukiScope \u2014 open it with a file manager", android.widget.Toast.LENGTH_LONG).show()
+        }
     }
 
     /** One text file with device details, every connection log and the crash log, for users to send in. */

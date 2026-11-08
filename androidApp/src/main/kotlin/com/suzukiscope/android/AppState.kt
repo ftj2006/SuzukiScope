@@ -510,10 +510,12 @@ object AppState {
                     waitingForSsid = true
                     attempt = 0
                     _connectionStatus.value = "$blocked \u2014 will connect automatically"
+                    dashboardViewModel.logConnectionEvent("connection lost; waiting for Wi-Fi: $blocked")
                     continue
                 }
                 reconnecting = true
                 attempt++
+                dashboardViewModel.logConnectionEvent("connection lost; reconnecting (attempt $attempt), phone Wi-Fi: ${currentSsid() ?: "unknown"}")
                 _connectionStatus.value = "Connection lost \u2014 reconnecting (attempt $attempt)..."
                 val backoffMs = minOf(2000L * (1 shl (attempt - 1).coerceAtMost(4)), 30_000L)
                 delay(backoffMs)
@@ -544,7 +546,10 @@ object AppState {
                         } else {
                             "WiFi network changed: $previous -> $ssid"
                         }
-                        if (previous != null) notify("Wi-Fi network changed: $previous \u2192 $ssid")
+                        if (previous != null) {
+                            notify("Wi-Fi network changed: $previous \u2192 $ssid")
+                            dashboardViewModel.logConnectionEvent("phone Wi-Fi changed: $previous -> $ssid")
+                        }
                     }
                     val unavailable = ssidUnavailableReason()
                     if (ssid == null && unavailable != null && _connectionStatus.value.startsWith("Connected: WiFi")) {
