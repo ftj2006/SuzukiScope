@@ -6,8 +6,12 @@ plugins {
 }
 
 kotlin {
-    jvm()
-    androidTarget()
+    jvm {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    }
+    androidTarget {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    }
 
     sourceSets {
         val commonMain by getting {
@@ -44,8 +48,4 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-}
-
-kotlin {
-    jvmToolchain(17)
 }

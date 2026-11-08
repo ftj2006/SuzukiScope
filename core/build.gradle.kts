@@ -4,7 +4,9 @@ plugins {
 }
 
 kotlin {
-    jvm()
+    jvm {
+        compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+    }
     // Android target is added by the app modules consuming this as a JVM dependency for now;
     // switch to a real Android target once Android Studio/SDK is available to verify the build.
     sourceSets {

@@ -92,9 +92,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
             val value = values[field.id] ?: field.gaugeMin
             itemListBuilder.addItem(
                 GridItem.Builder()
-                    // No title: GridItem's title is optional, and every pixel the host reserves for
-                    // it is a pixel not spent on the gauge image itself — the label is baked into
-                    // the bitmap instead (see GaugeIcon), so the ring can use the whole tile.
+                    // No title (optional since car-app 1.7): the label is baked into the GaugeIcon bitmap.
                     .setImage(
                         GaugeIcon.render(
                             field.label,
