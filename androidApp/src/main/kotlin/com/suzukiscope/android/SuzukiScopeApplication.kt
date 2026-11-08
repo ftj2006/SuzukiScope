@@ -3,7 +3,7 @@ package com.suzukiscope.android
 import android.app.Application
 import java.io.File
 
-class PjViewerApplication : Application() {
+class SuzukiScopeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AutoCrashLog.init(this)
