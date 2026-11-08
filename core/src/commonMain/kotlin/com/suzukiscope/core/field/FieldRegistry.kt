@@ -42,10 +42,12 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     }
     fun get(id: String): FieldDefinition? = _fields[id]
 
-    /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order. */
+    /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
+     * existing ones pick up catalog label changes. */
     fun mergeCatalog(catalog: List<FieldDefinition>) {
         for (field in catalog) {
-            if (!_fields.containsKey(field.id)) _fields[field.id] = field
+            val existing = _fields[field.id]
+            _fields[field.id] = existing?.copy(label = field.label) ?: field
         }
     }
 
@@ -135,7 +137,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 ),
                 FieldDefinition(
                     id = "engine.boost_pressure",
-                    label = "Boost Pressure",
+                    label = "Boost (absolute)",
                     unit = "bar",
                     // Catalog entry is raw kPa (scale=1.0); 0.01 converts to bar.
                     request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),

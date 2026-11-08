@@ -9,6 +9,8 @@ import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
 import androidx.car.app.model.OnClickListener
 import androidx.car.app.model.GridItem
+import androidx.car.app.model.GridSection
+import androidx.car.app.model.SectionedItemTemplate
 import androidx.car.app.model.GridTemplate
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.Template
@@ -26,6 +28,7 @@ private const val REFRESH_MS = 300L
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
+private const val MAX_EXTRA_LARGE_GAUGES = 3
 
 /**
  * Grid slots (gauge index, or null for an invisible spacer) that spread [count] gauges evenly
@@ -125,6 +128,25 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val isConnected = AppState.dashboardViewModel.isUsingHardwareSource()
 
         val itemListBuilder = ItemList.Builder()
+        val gaugeItems = fields.map { field ->
+            GridItem.Builder()
+                // No title (optional since car-app 1.7): the label is baked into the GaugeIcon bitmap.
+                .setImage(
+                    GaugeIcon.render(
+                        field.label,
+                        field.unit,
+                        values[field.id] ?: field.gaugeMin,
+                        field.gaugeMin,
+                        field.gaugeMax,
+                        peaks[field.id],
+                        field.warningThreshold,
+                        field.criticalThreshold,
+                        field.decimals,
+                    ),
+                    GridItem.IMAGE_TYPE_LARGE,
+                )
+                .build()
+        }
         val gridLimit = runCatching {
             carContext.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_GRID)
         }.getOrDefault(fields.size)
@@ -132,30 +154,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         // Never let padding push real gauges past the host's item limit.
         val slots = if (padded.size <= gridLimit) padded else fields.indices.toList()
         for (slot in slots) {
-            if (slot == null) {
-                itemListBuilder.addItem(GridItem.Builder().setImage(GaugeIcon.blankIcon(), GridItem.IMAGE_TYPE_LARGE).build())
-                continue
-            }
-            val field = fields[slot]
-            val value = values[field.id] ?: field.gaugeMin
             itemListBuilder.addItem(
-                GridItem.Builder()
-                    // No title (optional since car-app 1.7): the label is baked into the GaugeIcon bitmap.
-                    .setImage(
-                        GaugeIcon.render(
-                            field.label,
-                            field.unit,
-                            value,
-                            field.gaugeMin,
-                            field.gaugeMax,
-                            peaks[field.id],
-                            field.warningThreshold,
-                            field.criticalThreshold,
-                            field.decimals,
-                        ),
-                        GridItem.IMAGE_TYPE_LARGE,
-                    )
-                    .build(),
+                if (slot == null) GridItem.Builder().setImage(GaugeIcon.blankIcon(), GridItem.IMAGE_TYPE_LARGE).build() else gaugeItems[slot],
             )
         }
 
@@ -168,26 +168,41 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val status = AppState.connectionStatus.value
 
         if (carContext.carAppApiLevel >= 7) {
+            val recordFab = Action.Builder()
+                .setIcon(GaugeIcon.loggingStatusIcon(isLogging))
+                .setBackgroundColor(if (isLogging && flashOn) CarColor.RED else CarColor.SECONDARY)
+                .setOnClickListener(onRecord)
+                .build()
+            val connectFab = Action.Builder()
+                .setIcon(GaugeIcon.connectionStatusIcon(isConnected))
+                .setBackgroundColor(connectionColor(status, isConnected))
+                .setOnClickListener(onConnect)
+                .build()
+
+            // The plain grid's largest tile leaves most of the screen empty with only a few gauges;
+            // the sectioned grid (Car API 8) offers an extra-large tile size.
+            if (carContext.carAppApiLevel >= 8 && fields.size in 1..MAX_EXTRA_LARGE_GAUGES) {
+                return SectionedItemTemplate.Builder()
+                    .addSection(
+                        GridSection.Builder()
+                            .setItemSize(GridSection.ITEM_SIZE_EXTRA_LARGE)
+                            .setItemImageShape(GridSection.ITEM_IMAGE_SHAPE_CIRCLE)
+                            .setItems(gaugeItems)
+                            .build(),
+                    )
+                    .addAction(recordFab)
+                    .addAction(connectFab)
+                    .build()
+            }
+
             // No title/header action/action strip hides the host's header bar entirely; the two
             // controls float over the grid instead, giving the gauges the full screen height.
             return GridTemplate.Builder()
                 .setItemSize(GridTemplate.ITEM_SIZE_LARGE)
                 .setItemImageShape(GridTemplate.ITEM_IMAGE_SHAPE_CIRCLE)
                 .setSingleList(itemListBuilder.build())
-                .addAction(
-                    Action.Builder()
-                        .setIcon(GaugeIcon.loggingStatusIcon(isLogging))
-                        .setBackgroundColor(if (isLogging && flashOn) CarColor.RED else CarColor.SECONDARY)
-                        .setOnClickListener(onRecord)
-                        .build(),
-                )
-                .addAction(
-                    Action.Builder()
-                        .setIcon(GaugeIcon.connectionStatusIcon(isConnected))
-                        .setBackgroundColor(connectionColor(status, isConnected))
-                        .setOnClickListener(onConnect)
-                        .build(),
-                )
+                .addAction(recordFab)
+                .addAction(connectFab)
                 .build()
         }
 

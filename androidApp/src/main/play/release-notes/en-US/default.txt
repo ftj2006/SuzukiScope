@@ -1,4 +1,3 @@
+- Android Auto: with 1–3 gauges they are shown extra large (needs a recent Android Auto)
+- Boost fields labelled absolute / relative
 - Boost (relative) defaults: -0.3 to 1.65 bar, warning 1.45, critical 1.5
-- Boost (absolute) back to a plain 0–2.7 bar range without limits
-- New "Boost (relative)" field: manifold minus barometric pressure (enable it in Config)
-- Fixed: laggy phone gauge movement; faster polling

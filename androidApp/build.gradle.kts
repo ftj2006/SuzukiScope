@@ -43,8 +43,8 @@ android {
         applicationId = "za.co.pj.szviewer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 53
-        versionName = "1.5.43"
+        versionCode = 54
+        versionName = "1.5.44"
     }
 
     buildTypes {
@@ -89,6 +89,6 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation(platform("androidx.compose:compose-bom:2024.09.02"))
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.car.app:app:1.7.0")
+    implementation("androidx.car.app:app:1.8.0-rc01")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 }

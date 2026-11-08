@@ -6523,7 +6523,7 @@
   },
   {
     "id": "engine.can.00.boost_pressure_p147",
-    "label": "Boost pressure",
+    "label": "Boost pressure (absolute)",
     "unit": "kpa",
     "request": {
       "targetAddress": 2016,

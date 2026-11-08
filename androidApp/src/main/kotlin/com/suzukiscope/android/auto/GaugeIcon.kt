@@ -112,7 +112,8 @@ object GaugeIcon {
         "Engine RPM" to "RPM",
         "Oil Temperature" to "Oil",
         "Water Temperature" to "Water",
-        "Boost Pressure" to "Boost",
+        "Boost (absolute)" to "Boost abs",
+        "Boost (relative)" to "Boost",
         "Throttle Position" to "TPS",
         "Battery Voltage" to "Batt",
     )
