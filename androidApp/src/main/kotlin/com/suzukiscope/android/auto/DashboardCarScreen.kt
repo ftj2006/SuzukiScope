@@ -1,6 +1,7 @@
 package com.suzukiscope.android.auto
 
 import androidx.car.app.CarContext
+import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
@@ -45,6 +46,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
     // more than needed and make the car host's redraw noticeably laggy. This coalesces bursts of
     // updates into at most one redraw per REFRESH_MS.
     private var dirty = false
+    private var flashOn = true
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
@@ -56,8 +58,18 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                         launch { AppState.dashboardViewModel.peaks.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.isLogging.collect { dirty = true } }
                         launch {
+                            AppState.recordingSaved.collect { path ->
+                                CarToast.makeText(carContext, "Recording saved: $path", CarToast.LENGTH_LONG).show()
+                            }
+                        }
+                        launch {
+                            var tick = 0
                             while (true) {
                                 delay(REFRESH_MS)
+                                if (AppState.dashboardViewModel.isLogging.value && ++tick % 2 == 0) {
+                                    flashOn = !flashOn
+                                    dirty = true
+                                }
                                 if (dirty) {
                                     dirty = false
                                     invalidate()
@@ -114,7 +126,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val actionStrip = ActionStrip.Builder()
             .addAction(
                 Action.Builder()
-                    .setIcon(GaugeIcon.loggingStatusIcon(isLogging))
+                    .setIcon(if (isLogging) GaugeIcon.recordingFlashIcon(flashOn) else GaugeIcon.loggingStatusIcon(false))
                     .setOnClickListener {
                         if (isLogging) AppState.dashboardViewModel.stopLogging() else AppState.dashboardViewModel.startLogging()
                         invalidate()
@@ -147,6 +159,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val base = when {
             status.startsWith("Connected: WiFi") -> "Wi-Fi"
             status.startsWith("Connected:") -> "Connected"
+            status.startsWith("Waiting for Wi-Fi") -> "Waiting for Wi-Fi"
             status.contains("Connecting", ignoreCase = true) || status.contains("initialising", ignoreCase = true) -> "Connecting\u2026"
             status.contains("Simulated", ignoreCase = true) -> "Test data"
             status.contains("Disconnected", ignoreCase = true) -> "Disconnected"

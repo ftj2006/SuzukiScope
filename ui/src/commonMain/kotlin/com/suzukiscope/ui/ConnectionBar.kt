@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
@@ -54,12 +56,17 @@ fun ConnectionBar(
     wifiPort: Int = WifiTransport.DEFAULT_PORT,
     wifiLockedSsid: String? = null,
     onSaveWifiConfig: ((host: String, port: Int, lockedSsid: String?) -> Unit)? = null,
+    currentSsid: String? = null,
+    nearbySsids: List<String> = emptyList(),
+    /** Called when the Wi-Fi settings dialog opens, e.g. to ask for the permission needed to read network names. */
+    onWifiConfigOpened: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var wifiConfigOpen by remember { mutableStateOf(false) }
     val isBusy = status.contains("Connecting", ignoreCase = true) || status.contains("initialising", ignoreCase = true)
-    val isConnected = status.startsWith("Connected:") || status.contains("live data", ignoreCase = true)
+    val isConnected = status.startsWith("Connected:") || status.contains("live data", ignoreCase = true) ||
+        status.startsWith("Waiting for Wi-Fi")
     val hasError = listOf("error", "failed", "lost", "unreachable", "timed out").any { status.contains(it, ignoreCase = true) }
 
     Column(modifier.fillMaxWidth()) {
@@ -87,7 +94,7 @@ fun ConnectionBar(
                 if (onSaveWifiConfig != null) {
                     DropdownMenuItem(
                         text = { Text("Wifi settings") },
-                        onClick = { menuOpen = false; wifiConfigOpen = true },
+                        onClick = { menuOpen = false; wifiConfigOpen = true; onWifiConfigOpened() },
                     )
                 }
                 if (onOpenWifiSettings != null && onSaveWifiConfig == null) {
@@ -116,7 +123,7 @@ fun ConnectionBar(
             onDismissRequest = { wifiConfigOpen = false },
             title = { Text("Wi-Fi adapter address") },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     OutlinedTextField(value = host, onValueChange = { host = it }, label = { Text("IP address") }, singleLine = true)
                     OutlinedTextField(
                         value = port,
@@ -128,12 +135,27 @@ fun ConnectionBar(
                     OutlinedTextField(
                         value = lockedSsid,
                         onValueChange = { lockedSsid = it },
-                        label = { Text("Lock to Wi-Fi network (optional)") },
+                        label = { Text("Adapter Wi-Fi network") },
                         singleLine = true,
                         modifier = Modifier.padding(top = 8.dp),
                     )
+                    val choices = (listOfNotNull(currentSsid) + nearbySsids).distinct().take(6)
+                    if (choices.isNotEmpty()) {
+                        Text("Tap to choose:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                        choices.forEach { ssid ->
+                            TextButton(onClick = { lockedSsid = ssid }) {
+                                Text(if (ssid == currentSsid) "$ssid (current)" else ssid)
+                            }
+                        }
+                    } else {
+                        Text(
+                            "Allow Location (and turn it on) to list nearby networks.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                     Text(
-                        "When set, Connect refuses to run unless the phone is already joined to this network.",
+                        "Wi-Fi connects only while the phone is on this network. If it drops, the app waits and reconnects when it's back. Leave blank to lock to the network of the next successful connection.",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp),
                     )

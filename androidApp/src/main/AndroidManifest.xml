@@ -8,14 +8,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Needed to read the connected Wi-Fi SSID (WifiManager.connectionInfo) — pre-Android 13
-         requires location permission for this API; Android 13+ can use NEARBY_WIFI_DEVICES
-         with neverForLocation instead so no location permission/consent is needed. -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="32" />
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="33" />
+    <!-- Reading the connected Wi-Fi SSID (to lock onto the adapter's network) needs location
+         permission on every Android version; 12+ requires coarse to be requested alongside fine. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 
     <application

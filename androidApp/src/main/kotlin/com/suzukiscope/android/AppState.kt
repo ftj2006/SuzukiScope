@@ -20,6 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 
@@ -48,6 +53,22 @@ object AppState {
 
     private val _wifiConfig = MutableStateFlow(WifiConfig())
     val wifiConfig: StateFlow<WifiConfig> = _wifiConfig.asStateFlow()
+
+    private val _currentSsid = MutableStateFlow<String?>(null)
+    val currentSsidFlow: StateFlow<String?> = _currentSsid.asStateFlow()
+
+    private val _recordingSaved = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
+    /** Location of each recording as it's saved, so the car screen can show a toast too. */
+    val recordingSaved: kotlinx.coroutines.flow.SharedFlow<String> = _recordingSaved
+    private val _nearbySsids = MutableStateFlow<List<String>>(emptyList())
+    val nearbySsids: StateFlow<List<String>> = _nearbySsids.asStateFlow()
+
+    // Kept up to date by [WifiCallback]; null when the phone isn't on any Wi-Fi network.
+    @Volatile private var wifiNetwork: Network? = null
+    @Volatile private var callbackSsid: String? = null
+    // Set when a Wi-Fi connect is blocked because the locked SSID isn't the current network;
+    // the watchdog connects as soon as it is.
+    @Volatile private var waitingForSsid = false
 
     val dashboardViewModel: DashboardViewModel = DashboardViewModel(
         scope,
@@ -78,7 +99,56 @@ object AppState {
         AutoCrashLog.init(context)
         AutoCrashLog.setEnabled(dashboardViewModel.debugLogsEnabled.value)
         dashboardViewModel.debugLogsSettingSink = AutoCrashLog::setEnabled
+        val appCtx = context.applicationContext
+        // Set here rather than in MainActivity so recordings started from Android Auto are saved too.
+        dashboardViewModel.setExportSink { files ->
+            val saved = ExportStore.save(appCtx, files)
+            saved.filter { it.endsWith(".csv") }.forEach {
+                ExportStore.notifyRecordingSaved(appCtx, it)
+                _recordingSaved.tryEmit(it)
+            }
+        }
+        registerWifiCallback(appCtx)
     }
+
+    private class WifiCallback : ConnectivityManager.NetworkCallback {
+        constructor() : super()
+        @androidx.annotation.RequiresApi(Build.VERSION_CODES.S)
+        constructor(flags: Int) : super(flags)
+
+        override fun onAvailable(network: Network) {
+            wifiNetwork = network
+        }
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            wifiNetwork = network
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                cleanSsid((caps.transportInfo as? WifiInfo)?.ssid)?.let { callbackSsid = it }
+            }
+        }
+
+        override fun onLost(network: Network) {
+            if (network == wifiNetwork) {
+                wifiNetwork = null
+                callbackSsid = null
+            }
+        }
+    }
+
+    private fun registerWifiCallback(context: android.content.Context) {
+        val cm = context.getSystemService(ConnectivityManager::class.java) ?: return
+        val request = NetworkRequest.Builder().addTransportType(NetworkCapabilities.TRANSPORT_WIFI).build()
+        // Android 12+ redacts the SSID from callbacks unless explicitly asked for (still needs location permission).
+        val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            WifiCallback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO)
+        } else {
+            WifiCallback()
+        }
+        runCatching { cm.registerNetworkCallback(request, callback) }
+    }
+
+    private fun cleanSsid(raw: String?): String? =
+        raw?.trim('"')?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID }
 
     /** Loads previously-saved field config (order/enabled/gauge max/thresholds) from disk, if any. */
     fun initPersistence(file: File) {
@@ -155,7 +225,7 @@ object AppState {
         when {
             kind == "wifi" -> {
                 selectWifi()
-                if (!connectWifi()) _reconnectPrompt.value = "Could not reconnect to Wi-Fi automatically."
+                if (!connectWifi() && !waitingForSsid) _reconnectPrompt.value = "Could not reconnect to Wi-Fi automatically."
             }
             kind.startsWith("bluetooth:") -> {
                 val address = kind.removePrefix("bluetooth:")
@@ -192,28 +262,61 @@ object AppState {
     /** True once the OS lets us read the actually-connected Wi-Fi SSID (see [currentSsid]). */
     fun hasWifiSsidPermission(): Boolean {
         val context = appContext ?: return false
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            android.Manifest.permission.NEARBY_WIFI_DEVICES
-        } else {
-            android.Manifest.permission.ACCESS_FINE_LOCATION
-        }
-        return androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+        return androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
-    /** The permission to request (via an Activity) so [currentSsid] can start working. */
-    fun wifiSsidPermission(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        android.Manifest.permission.NEARBY_WIFI_DEVICES
-    } else {
-        android.Manifest.permission.ACCESS_FINE_LOCATION
+    /** Permissions to request (via an Activity) so [currentSsid] can start working. Reading the
+     * connected SSID needs fine location on every Android version; 12+ requires coarse alongside it. */
+    fun wifiSsidPermissions(): Array<String> = arrayOf(
+        android.Manifest.permission.ACCESS_FINE_LOCATION,
+        android.Manifest.permission.ACCESS_COARSE_LOCATION,
+    )
+
+    private fun isLocationEnabled(): Boolean {
+        val lm = appContext?.getSystemService(android.location.LocationManager::class.java) ?: return false
+        return androidx.core.location.LocationManagerCompat.isLocationEnabled(lm)
     }
 
     private fun currentSsid(): String? {
         if (!hasWifiSsidPermission()) return null
+        callbackSsid?.let { return it }
         return runCatching {
-            (appContext?.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager)
-                ?.connectionInfo?.ssid?.trim('"')
-        }.getOrNull()?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID }
+            @Suppress("DEPRECATION")
+            cleanSsid((appContext?.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager)?.connectionInfo?.ssid)
+        }.getOrNull()
+    }
+
+    /** Why the Wi-Fi name can't be shown, or null if it can (or the phone isn't on Wi-Fi). */
+    private fun ssidUnavailableReason(): String? = when {
+        wifiNetwork == null -> null
+        !hasWifiSsidPermission() -> "allow Location to see the network name"
+        !isLocationEnabled() -> "turn on Location to see the network name"
+        currentSsid() == null -> "network name unavailable"
+        else -> null
+    }
+
+    /** Non-null (a status message) while a Wi-Fi connect must wait for the locked network. */
+    private fun wifiBlockReason(): String? {
+        val locked = _wifiConfig.value.lockedSsid ?: return null
+        if (wifiNetwork == null) return "Waiting for Wi-Fi '$locked' (phone not on Wi-Fi)"
+        // If the name can't be read we can't tell, so let the attempt go ahead rather than block forever.
+        val ssid = currentSsid() ?: return null
+        return if (ssid != locked) "Waiting for Wi-Fi '$locked' (phone on '$ssid')" else null
+    }
+
+    private fun newWifiTransport(): WifiTransport {
+        val config = _wifiConfig.value
+        return WifiTransport(config.host, config.port, socketFactory = wifiNetwork?.socketFactory)
+    }
+
+    private fun refreshNearbySsids() {
+        if (!hasWifiSsidPermission()) return
+        val wm = appContext?.getSystemService(android.content.Context.WIFI_SERVICE) as? WifiManager ?: return
+        _nearbySsids.value = runCatching {
+            @Suppress("DEPRECATION")
+            wm.scanResults.mapNotNull { cleanSsid(it.SSID) }.distinct().sorted()
+        }.getOrDefault(emptyList())
     }
 
     init {
@@ -225,9 +328,9 @@ object AppState {
     suspend fun connectWifi(): Boolean {
         val config = _wifiConfig.value
         lastWifiSsid = null
-        reconnectFactory = { WifiTransport(config.host, config.port) }
+        reconnectFactory = ::newWifiTransport
         _connectionStatus.value = "Connecting to ELM327 Wi-Fi adapter (${config.host}:${config.port})..."
-        return connect(WifiTransport(config.host, config.port))
+        return connect(newWifiTransport())
     }
 
     suspend fun connectBluetooth(transport: Transport): Boolean {
@@ -238,15 +341,13 @@ object AppState {
 
     private suspend fun connect(transport: Transport): Boolean {
         if (transport is WifiTransport) {
-            val locked = _wifiConfig.value.lockedSsid
-            if (!locked.isNullOrBlank()) {
-                val ssid = currentSsid()
-                if (ssid != null && ssid != locked) {
-                    _connectionStatus.value = "Connect to Wi-Fi network '$locked' first (currently on '$ssid')"
-                    return false
-                }
+            wifiBlockReason()?.let { reason ->
+                waitingForSsid = true
+                _connectionStatus.value = "$reason \u2014 will connect automatically"
+                return false
             }
         }
+        waitingForSsid = false
         var source: Elm327LiveDataSource? = null
         try {
             _connectionStatus.value = "Preparing ${transport.name}..."
@@ -271,6 +372,7 @@ object AppState {
             dtcViewModel.attachClient(source.client)
             _connectionStatus.value = connectionStatusFor(transport)
             rememberLastConnection(if (transport is WifiTransport) "wifi" else "bluetooth:${transport.name.removePrefix("bt://")}")
+            if (transport is WifiTransport) lockToCurrentSsidIfUnset()
             maybeRunFirstConnectionProbe()
             return true
         } catch (e: Exception) {
@@ -286,9 +388,19 @@ object AppState {
 
     fun useSimulated() {
         reconnectFactory = null
+        waitingForSsid = false
         dashboardViewModel.useSource(SimulatedLiveDataSource())
         _connectionStatus.value = "Simulated data"
         rememberLastConnection("simulated")
+    }
+
+    /** First successful adapter connection remembers the network it was on, so later connects wait for it. */
+    private fun lockToCurrentSsidIfUnset() {
+        val config = _wifiConfig.value
+        if (config.lockedSsid != null) return
+        val ssid = currentSsid() ?: return
+        setWifiConfig(config.host, config.port, ssid)
+        notify("Locked to Wi-Fi '$ssid' \u2014 change under Wifi settings")
     }
 
     // --- Auto-reconnect ---
@@ -302,9 +414,10 @@ object AppState {
     fun selectWifi() {
         dashboardViewModel.stopTestData()
         lastWifiSsid = null
+        selectedTransport = newWifiTransport()
         val config = _wifiConfig.value
-        selectedTransport = WifiTransport(config.host, config.port)
-        _connectionStatus.value = "Wi-Fi selected: ${config.host}:${config.port}"
+        _connectionStatus.value = "Wi-Fi selected: ${config.host}:${config.port}" +
+            (config.lockedSsid?.let { " on '$it'" } ?: "")
     }
 
     fun selectBluetooth(transport: Transport) {
@@ -314,6 +427,12 @@ object AppState {
     }
 
     suspend fun toggleConnection() {
+        if (waitingForSsid) {
+            waitingForSsid = false
+            reconnectFactory = null
+            _connectionStatus.value = "Disconnected"
+            return
+        }
         if (dashboardViewModel.isUsingHardwareSource()) {
             reconnectFactory = null
             dashboardViewModel.disconnectHardware()
@@ -324,20 +443,45 @@ object AppState {
             selectWifi()
             selectedTransport!!
         }
-        reconnectFactory = { transport }
+        // Wi-Fi gets a fresh transport per attempt so it binds to whichever Wi-Fi network is current.
+        val factory: () -> Transport = if (transport is WifiTransport) ::newWifiTransport else { { transport } }
+        reconnectFactory = factory
         _connectionStatus.value = "Connecting to ${transport.name}..."
-        connect(transport)
+        connect(factory())
     }
 
     private fun startReconnectWatchdog() {
         scope.launch {
             var attempt = 0
             while (true) {
-                delay(3000)
+                delay(2000)
                 val factory = reconnectFactory
+                if (factory == null || reconnecting) continue
+                if (waitingForSsid) {
+                    val reason = wifiBlockReason()
+                    if (reason != null) {
+                        _connectionStatus.value = "$reason \u2014 will connect automatically"
+                        continue
+                    }
+                    reconnecting = true
+                    attempt = 0
+                    _connectionStatus.value = "Wi-Fi '${_wifiConfig.value.lockedSsid}' available \u2014 connecting..."
+                    connect(factory())
+                    reconnecting = false
+                    continue
+                }
                 val stalled = dashboardViewModel.isUsingHardwareSource() &&
                     dashboardViewModel.millisSinceLastReading() > 6000
-                if (factory == null || !stalled || reconnecting) continue
+                if (!stalled) continue
+                val onWifi = dashboardViewModel.currentTransportName().startsWith("wifi://")
+                val blocked = if (onWifi) wifiBlockReason() else null
+                if (blocked != null) {
+                    // The adapter's network has gone; stop hammering it until the phone is back on it.
+                    waitingForSsid = true
+                    attempt = 0
+                    _connectionStatus.value = "$blocked \u2014 will connect automatically"
+                    continue
+                }
                 reconnecting = true
                 attempt++
                 _connectionStatus.value = "Connection lost \u2014 reconnecting (attempt $attempt)..."
@@ -352,9 +496,12 @@ object AppState {
 
     private fun startWifiMonitor() {
         scope.launch {
+            var tick = 0
             while (true) {
                 delay(2000)
                 val ssid = currentSsid()
+                _currentSsid.value = ssid
+                if (tick++ % 5 == 0) refreshNearbySsids()
                 val locked = _wifiConfig.value.lockedSsid
                 val usingWifi = dashboardViewModel.isUsingHardwareSource() && dashboardViewModel.currentTransportName().startsWith("wifi://")
 
@@ -369,8 +516,9 @@ object AppState {
                         }
                         if (previous != null) notify("Wi-Fi network changed: $previous \u2192 $ssid")
                     }
-                    if (ssid == null && _connectionStatus.value.startsWith("Connected: WiFi") && hasWifiSsidPermission()) {
-                        _connectionStatus.value = "Connected: WiFi (SSID unavailable)"
+                    val unavailable = ssidUnavailableReason()
+                    if (ssid == null && unavailable != null && _connectionStatus.value.startsWith("Connected: WiFi")) {
+                        _connectionStatus.value = "Connected: WiFi ($unavailable)"
                     }
                 } else if (!locked.isNullOrBlank() && ssid != null && ssid != lastWarnedWrongSsid) {
                     // Not connected yet — let the driver know up front they're on the wrong
@@ -393,6 +541,6 @@ object AppState {
     private fun connectionStatusFor(transport: Transport): String {
         if (!transport.name.startsWith("wifi://")) return "Connected: ${transport.name}"
         val ssid = currentSsid()
-        return if (ssid == null) "Connected: WiFi" else "Connected: WiFi $ssid"
+        return if (ssid != null) "Connected: WiFi $ssid" else "Connected: WiFi" + (ssidUnavailableReason()?.let { " ($it)" } ?: "")
     }
 }

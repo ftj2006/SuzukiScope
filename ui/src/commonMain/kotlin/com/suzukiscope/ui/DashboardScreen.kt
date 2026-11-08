@@ -1,5 +1,10 @@
 package com.suzukiscope.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,10 +49,16 @@ fun DashboardScreen(
             Box(Modifier.weight(1f)) { connectionBar() }
             // Plain (unfilled) until actually recording, so it doesn't look pre-selected when idle.
             if (isLogging) {
+                val pulse by rememberInfiniteTransition(label = "recording").animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0.3f,
+                    animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
+                    label = "recordingPulse",
+                )
                 FilledIconButton(
                     onClick = { viewModel.stopLogging() },
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
+                        containerColor = MaterialTheme.colorScheme.error.copy(alpha = pulse),
                         contentColor = MaterialTheme.colorScheme.onError,
                     ),
                 ) {

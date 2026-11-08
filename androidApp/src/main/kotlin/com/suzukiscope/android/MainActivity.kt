@@ -57,20 +57,30 @@ class MainActivity : ComponentActivity() {
     private var pendingBluetoothConnect: (() -> Unit)? = null
 
     private val requestWifiSsidPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
+        ActivityResultContracts.RequestMultiplePermissions(),
     ) { /* best-effort: SSID just won't show if refused, connecting still works */ }
+
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
 
     // Devices offered in the "choose Bluetooth device" dialog; empty means the dialog is hidden.
     private var bluetoothDeviceChoices by mutableStateOf<List<BluetoothDevice>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AppState.dashboardViewModel.setExportSink { files -> ExportStore.save(this, files) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         setContent {
             val viewModel = AppState.dashboardViewModel
             val dtcViewModel = AppState.dtcViewModel
             val connectionStatus by AppState.connectionStatus.collectAsState()
             val wifiConfig by AppState.wifiConfig.collectAsState()
+            val currentSsid by AppState.currentSsidFlow.collectAsState()
+            val nearbySsids by AppState.nearbySsids.collectAsState()
             val testDataEnabled by viewModel.testDataEnabled.collectAsState()
             val reconnectPrompt by AppState.reconnectPrompt.collectAsState()
             var connectionLogsOpen by remember { mutableStateOf(false) }
@@ -105,7 +115,7 @@ class MainActivity : ComponentActivity() {
                                 onSelectWifi = {
                                     AppState.selectWifi()
                                     if (!AppState.hasWifiSsidPermission()) {
-                                        requestWifiSsidPermission.launch(AppState.wifiSsidPermission())
+                                        requestWifiSsidPermission.launch(AppState.wifiSsidPermissions())
                                     }
                                 },
                                 onSelectBluetooth = { connectToBluetooth() },
@@ -117,6 +127,13 @@ class MainActivity : ComponentActivity() {
                                 wifiPort = wifiConfig.port,
                                 wifiLockedSsid = wifiConfig.lockedSsid,
                                 onSaveWifiConfig = { host, port, lockedSsid -> AppState.setWifiConfig(host, port, lockedSsid) },
+                                currentSsid = currentSsid,
+                                nearbySsids = nearbySsids,
+                                onWifiConfigOpened = {
+                                    if (!AppState.hasWifiSsidPermission()) {
+                                        requestWifiSsidPermission.launch(AppState.wifiSsidPermissions())
+                                    }
+                                },
                             )
                         },
                     )

@@ -15,6 +15,8 @@ class WifiTransport(
     private val host: String = DEFAULT_HOST,
     private val port: Int = DEFAULT_PORT,
     private val connectTimeoutMs: Int = 3000,
+    /** On Android, the Wi-Fi Network's factory, so traffic isn't routed to mobile data when the adapter's Wi-Fi has no internet. */
+    private val socketFactory: javax.net.SocketFactory? = null,
 ) : Transport {
     override val name: String = "wifi://$host:$port"
     private var socket: Socket? = null
@@ -22,7 +24,7 @@ class WifiTransport(
 
     override suspend fun connect() {
         withContext(Dispatchers.IO) {
-            val s = Socket()
+            val s = socketFactory?.createSocket() ?: Socket()
             s.connect(InetSocketAddress(host, port), connectTimeoutMs)
             // Nagle's algorithm can add tens of ms of pure waiting to every single
             // request/response round trip on a short request-then-wait-for-reply protocol like

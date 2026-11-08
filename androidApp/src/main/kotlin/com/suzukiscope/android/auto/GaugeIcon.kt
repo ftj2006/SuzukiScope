@@ -131,15 +131,17 @@ object GaugeIcon {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val cx = size / 2f
-        val cy = size * 0.6f
+        val cy = size * 0.78f
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = size * 0.1f
             strokeCap = Paint.Cap.ROUND
             color = Color.WHITE
         }
-        canvas.drawArc(RectF(cx - size * 0.42f, cy - size * 0.74f, cx + size * 0.42f, cy + size * 0.1f), 205f, 130f, false, paint)
-        canvas.drawArc(RectF(cx - size * 0.24f, cy - size * 0.46f, cx + size * 0.24f, cy + size * 0.02f), 205f, 130f, false, paint)
+        // Concentric arcs about the dot, sized so the outer one (plus stroke) stays inside the bitmap.
+        for (r in listOf(size * 0.6f, size * 0.36f)) {
+            canvas.drawArc(RectF(cx - r, cy - r, cx + r, cy + r), 225f, 90f, false, paint)
+        }
         val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
             color = Color.WHITE
@@ -154,6 +156,18 @@ object GaugeIcon {
 
     /** Small icon-only status indicator (filled = recording, hollow ring = not) for the ActionStrip. */
     fun loggingStatusIcon(logging: Boolean): CarIcon = dotIcon(logging, Color.WHITE)
+
+    /**
+     * Recording indicator that flashes: alternates a red-tinted filled dot with a hollow ring.
+     * The shape change keeps it visibly flashing on hosts that ignore the tint.
+     */
+    fun recordingFlashIcon(on: Boolean): CarIcon = if (on) {
+        CarIcon.Builder(dotIcon(true, Color.WHITE).icon!!)
+            .setTint(androidx.car.app.model.CarColor.RED)
+            .build()
+    } else {
+        dotIcon(false, Color.WHITE)
+    }
 
     private fun dotIcon(active: Boolean, activeColor: Int): CarIcon {
         val size = 96
