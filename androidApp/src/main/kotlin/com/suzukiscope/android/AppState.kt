@@ -162,6 +162,15 @@ object AppState {
         dashboardViewModel.refreshFields()
     }
 
+    /** Restores the chosen vehicle bus (or infers it from the enabled fields) and drops any other-bus fields. */
+    fun initVehicleProtocol(file: File) {
+        val saved = runCatching { Elm327Protocol.valueOf(file.readText().trim()) }.getOrNull()
+        dashboardViewModel.setVehicleProtocol(saved ?: dashboardViewModel.inferVehicleProtocol())
+        dashboardViewModel.vehicleProtocolSink = { protocol ->
+            runCatching { file.parentFile?.mkdirs(); file.writeText(protocol.name) }
+        }
+    }
+
     /** Loads the previously-saved Wi-Fi adapter IP/port, if any (defaults to the standard ELM327 adapter). */
     fun initWifiConfig(file: File) {
         if (wifiConfigFile != null) return
@@ -363,15 +372,8 @@ object AppState {
         var source: Elm327LiveDataSource? = null
         try {
             _connectionStatus.value = "Preparing ${transport.name}..."
-            // ELM327 must be initialised for one bus at a time — pick whichever most enabled fields
-            // use (responsePrefixBytes==0 means CAN-UDS); fields for the other bus are skipped.
-            val enabled = dashboardViewModel.fields.value.filter { it.enabled }
-            val canCount = enabled.count { it.request.responsePrefixBytes == 0 }
-            val protocol = if (canCount > 0 && canCount * 2 >= enabled.size) {
-                Elm327Protocol.CAN_11BIT_500K
-            } else {
-                Elm327Protocol.KWP_FAST
-            }
+            // ELM327 must be initialised for one bus at a time — the vehicle bus chosen in Config.
+            val protocol = dashboardViewModel.vehicleProtocol.value
             _connectionStatus.value = "Connecting to ${transport.name}..."
             source = Elm327LiveDataSource(transport, protocol)
             // Attached before connect() so a failed attempt's trace is still exportable via the

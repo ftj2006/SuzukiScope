@@ -16,6 +16,10 @@ enum class Elm327Protocol(val atSpValue: String) {
     CAN_11BIT_500K("6"),
 }
 
+/** The bus a field is read over: CAN-UDS fields have no KWP response prefix. */
+val com.suzukiscope.core.field.FieldDefinition.busProtocol: Elm327Protocol
+    get() = if (request.responsePrefixBytes == 0) Elm327Protocol.CAN_11BIT_500K else Elm327Protocol.KWP_FAST
+
 /**
  * Minimal ELM327 AT-command client: sends commands, reads until the '>' prompt, strips echo.
  * Ported understanding from com.malykh.szviewer.common.elm327 (init/request/answer packages) —

@@ -12,6 +12,7 @@ class SuzukiScopeApplication : Application() {
         // process directly, without the phone Activity ever starting — field selection/Wi-Fi
         // config/auto-reconnect must be ready before the first car screen is built either way.
         AppState.initPersistence(File(filesDir, "field-config.json"))
+        AppState.initVehicleProtocol(File(filesDir, "vehicle-protocol.txt"))
         AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
         AppState.initLastConnection(File(filesDir, "last-connection.txt"))
         AppState.initDtcModulesPersistence(File(filesDir, "dtc-unresponsive-modules.txt"))

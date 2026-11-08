@@ -36,6 +36,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.suzukiscope.core.field.FieldDefinition
+import com.suzukiscope.core.elm327.Elm327Protocol
+import com.suzukiscope.core.elm327.busProtocol
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import kotlinx.coroutines.launch
 
 /**
@@ -52,7 +56,11 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
     var editingField by remember { mutableStateOf<FieldDefinition?>(null) }
     var debugLogOpen by remember { mutableStateOf(false) }
     var showNoDataFields by remember { mutableStateOf(false) }
-    val filtered = (if (filter.isBlank()) fields else fields.filter { it.label.contains(filter, ignoreCase = true) })
+    val vehicleProtocol by viewModel.vehicleProtocol.collectAsState()
+    var protocolMenuOpen by remember { mutableStateOf(false) }
+    var pendingProtocol by remember { mutableStateOf<Elm327Protocol?>(null) }
+    val busFields = fields.filter { it.busProtocol == vehicleProtocol }
+    val filtered = (if (filter.isBlank()) busFields else busFields.filter { it.label.contains(filter, ignoreCase = true) })
         .filter { showNoDataFields || !it.verifiedNoData }
     val visible = filtered.sortedByDescending { it.enabled }
     val debugLogsEnabled by viewModel.debugLogsEnabled.collectAsState()
@@ -89,10 +97,35 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
                 androidx.compose.material3.Icon(Icons.Outlined.BugReport, contentDescription = "View connection logs")
             }
         }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("Protocol", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
+            androidx.compose.foundation.layout.Box {
+                TextButton(onClick = { protocolMenuOpen = true }) {
+                    Text("${protocolName(vehicleProtocol)} \u25BE")
+                }
+                DropdownMenu(expanded = protocolMenuOpen, onDismissRequest = { protocolMenuOpen = false }) {
+                    Elm327Protocol.entries.reversed().forEach { protocol ->
+                        DropdownMenuItem(
+                            text = { Text(protocolName(protocol)) },
+                            onClick = {
+                                protocolMenuOpen = false
+                                if (protocol != vehicleProtocol) {
+                                    if (fields.any { it.enabled }) pendingProtocol = protocol else viewModel.setVehicleProtocol(protocol)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            protocolHint(vehicleProtocol),
+            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+        )
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it },
-            label = { Text("Filter fields (${fields.size} total, ${fields.count { it.enabled }} shown)") },
+            label = { Text("Filter fields (${busFields.size} total, ${busFields.count { it.enabled }} shown)") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
@@ -169,6 +202,20 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
         }
     }
 
+    pendingProtocol?.let { protocol ->
+        AlertDialog(
+            onDismissRequest = { pendingProtocol = null },
+            title = { Text("Switch to ${protocolName(protocol)}?") },
+            text = {
+                Text("The adapter can only read one protocol at a time, so your current ${protocolName(vehicleProtocol)} gauges will be removed from the dashboard.")
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.setVehicleProtocol(protocol); pendingProtocol = null }) { Text("Switch") }
+            },
+            dismissButton = { TextButton(onClick = { pendingProtocol = null }) { Text("Cancel") } },
+        )
+    }
+
     if (debugLogOpen) {
         AlertDialog(
             onDismissRequest = { debugLogOpen = false },
@@ -186,6 +233,16 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
             },
         )
     }
+}
+
+private fun protocolName(protocol: Elm327Protocol): String = when (protocol) {
+    Elm327Protocol.CAN_11BIT_500K -> "CAN"
+    Elm327Protocol.KWP_FAST -> "K-Line (KWP)"
+}
+
+private fun protocolHint(protocol: Elm327Protocol): String = when (protocol) {
+    Elm327Protocol.CAN_11BIT_500K -> "Newer Suzukis with CAN diagnostics. Only CAN fields are listed."
+    Elm327Protocol.KWP_FAST -> "Older Suzukis with K-Line diagnostics. Only K-Line fields are listed."
 }
 
 /** Lets the user set/clear a field's gauge minimum/maximum (hidden for percentage fields, which

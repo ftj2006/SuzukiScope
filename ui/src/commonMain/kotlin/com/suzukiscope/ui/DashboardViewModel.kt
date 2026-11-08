@@ -8,6 +8,7 @@ import com.suzukiscope.core.log.LiveDataRecorder
 import com.suzukiscope.core.log.Reading
 import com.suzukiscope.core.session.Elm327LiveDataSource
 import com.suzukiscope.core.elm327.Elm327Protocol
+import com.suzukiscope.core.elm327.busProtocol
 import com.suzukiscope.core.session.LiveDataSession
 import com.suzukiscope.core.session.LiveDataSource
 import com.suzukiscope.core.session.SimulatedLiveDataSource
@@ -71,6 +72,11 @@ class DashboardViewModel(
     var debugLogsSettingSink: ((Boolean) -> Unit)? = null
     private val _testDataEnabled = MutableStateFlow(true)
     val testDataEnabled: StateFlow<Boolean> = _testDataEnabled.asStateFlow()
+
+    /** The car's diagnostic bus; only fields for this bus can be enabled, and connecting uses it. */
+    private val _vehicleProtocol = MutableStateFlow(Elm327Protocol.CAN_11BIT_500K)
+    val vehicleProtocol: StateFlow<Elm327Protocol> = _vehicleProtocol.asStateFlow()
+    var vehicleProtocolSink: ((Elm327Protocol) -> Unit)? = null
     private val connectionLogs = ArrayList<ConnectionLog>()
 
     /** Progress/result text for [probeAllFieldsForData]; null when no pass is running/just finished. */
@@ -240,6 +246,22 @@ class DashboardViewModel(
         }
     }
     fun setTestDataEnabled(enabled: Boolean) { _testDataEnabled.value = enabled }
+
+    /** Switches the vehicle bus and disables any enabled fields that belong to the other one. */
+    fun setVehicleProtocol(protocol: Elm327Protocol) {
+        _vehicleProtocol.value = protocol
+        registry.fields.filter { it.enabled && it.busProtocol != protocol }.forEach { registry.setEnabled(it.id, false) }
+        _fields.value = registry.fields
+        persist()
+        vehicleProtocolSink?.invoke(protocol)
+    }
+
+    /** Bus most enabled fields use (CAN when tied or none) — the starting point before the user picks one. */
+    fun inferVehicleProtocol(): Elm327Protocol {
+        val enabled = registry.fields.filter { it.enabled }
+        val kwp = enabled.count { it.busProtocol == Elm327Protocol.KWP_FAST }
+        return if (kwp * 2 > enabled.size) Elm327Protocol.KWP_FAST else Elm327Protocol.CAN_11BIT_500K
+    }
 
     fun setRecordEnabled(id: String, recordEnabled: Boolean) {
         registry.setRecordEnabled(id, recordEnabled)
