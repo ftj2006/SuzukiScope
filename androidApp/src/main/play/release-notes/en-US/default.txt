@@ -1,4 +1,3 @@
-- Android Auto: top bar removed so gauges use the full screen; Record and Connect are now floating buttons (Connect: green = connected, yellow = connecting/waiting for Wi-Fi)
-- Wi-Fi: locks to the adapter's network and waits/reconnects when it returns
-- Recording saved toast + notification; record button flashes while recording
-- Test data now changes gradually
+- Fixed: Wi-Fi connect/disconnect loop with no data (old adapter connection now closed before reconnecting, overlapping attempts prevented, more time allowed for the first reading)
+- Android Auto: record button icon now white for better contrast
+- Menu: consistent "WiFi settings" / "Bluetooth settings" labels

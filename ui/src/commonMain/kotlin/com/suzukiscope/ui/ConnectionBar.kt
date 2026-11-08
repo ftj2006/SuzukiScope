@@ -93,15 +93,15 @@ fun ConnectionBar(
                 }
                 if (onSaveWifiConfig != null) {
                     DropdownMenuItem(
-                        text = { Text("Wifi settings") },
+                        text = { Text("WiFi settings") },
                         onClick = { menuOpen = false; wifiConfigOpen = true; onWifiConfigOpened() },
                     )
                 }
                 if (onOpenWifiSettings != null && onSaveWifiConfig == null) {
-                    DropdownMenuItem(text = { Text("Wifi settings") }, onClick = { menuOpen = false; onOpenWifiSettings() })
+                    DropdownMenuItem(text = { Text("WiFi settings") }, onClick = { menuOpen = false; onOpenWifiSettings() })
                 }
                 if (onOpenBluetoothSettings != null) {
-                    DropdownMenuItem(text = { Text("Bluetooth settings\u2026") }, onClick = { menuOpen = false; onOpenBluetoothSettings() })
+                    DropdownMenuItem(text = { Text("Bluetooth settings") }, onClick = { menuOpen = false; onOpenBluetoothSettings() })
                 }
             }
         }

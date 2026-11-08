@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import android.net.ConnectivityManager
 import android.net.Network
@@ -35,6 +36,9 @@ import android.os.Build
  * phone screen or the head unit.
  */
 object AppState {
+    // K-Line fast init plus the first shared request can take several seconds; a shorter window
+    // declared fresh connections dead before their first reading and looped reconnecting.
+    private const val STALL_MS = 12_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var appContext: android.content.Context? = null
     private var lastWifiSsid: String? = null
@@ -339,7 +343,13 @@ object AppState {
         return connect(transport)
     }
 
-    private suspend fun connect(transport: Transport): Boolean {
+    // Serialises connects (startup, watchdog and the Connect button can race) — ELM327 Wi-Fi
+    // adapters usually accept a single client, so overlapping attempts starve each other.
+    private val connectMutex = kotlinx.coroutines.sync.Mutex()
+
+    private suspend fun connect(transport: Transport): Boolean = connectMutex.withLock { connectLocked(transport) }
+
+    private suspend fun connectLocked(transport: Transport): Boolean {
         if (transport is WifiTransport) {
             wifiBlockReason()?.let { reason ->
                 waitingForSsid = true
@@ -348,6 +358,8 @@ object AppState {
             }
         }
         waitingForSsid = false
+        // Close any previous adapter socket first, otherwise it can hold the adapter's only client slot.
+        dashboardViewModel.closeHardwareTransport()
         var source: Elm327LiveDataSource? = null
         try {
             _connectionStatus.value = "Preparing ${transport.name}..."
@@ -471,7 +483,7 @@ object AppState {
                     continue
                 }
                 val stalled = dashboardViewModel.isUsingHardwareSource() &&
-                    dashboardViewModel.millisSinceLastReading() > 6000
+                    dashboardViewModel.millisSinceLastReading() > STALL_MS
                 if (!stalled) continue
                 val onWifi = dashboardViewModel.currentTransportName().startsWith("wifi://")
                 val blocked = if (onWifi) wifiBlockReason() else null

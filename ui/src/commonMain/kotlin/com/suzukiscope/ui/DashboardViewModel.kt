@@ -159,6 +159,11 @@ class DashboardViewModel(
         useSource(SimulatedLiveDataSource())
     }
 
+    /** Closes the current adapter socket without switching to simulated data (used before reconnecting). */
+    suspend fun closeHardwareTransport() {
+        (source as? Elm327LiveDataSource)?.let { runCatching { it.disconnect() } }
+    }
+
     fun stopTestData() {
         if (!isUsingHardwareSource()) {
             finishCurrentRun()

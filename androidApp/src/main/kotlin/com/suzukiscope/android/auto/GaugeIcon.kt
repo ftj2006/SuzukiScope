@@ -174,7 +174,7 @@ object GaugeIcon {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (active) activeColor else Color.argb(255, 120, 120, 120)
+            color = if (active) activeColor else Color.WHITE
             style = if (active) Paint.Style.FILL else Paint.Style.STROKE
             strokeWidth = size * 0.12f
         }
