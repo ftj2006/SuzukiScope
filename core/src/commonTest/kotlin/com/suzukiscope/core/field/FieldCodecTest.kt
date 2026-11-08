@@ -6,6 +6,13 @@ import kotlin.test.assertEquals
 class FieldCodecTest {
 
     @Test
+    fun subtractsReferenceValueForRelativeReadings() {
+        // Manifold 84 kPa minus barometric 101 kPa -> -0.17 bar (vacuum at idle).
+        val spec = DecodeSpec(skipBytes = 1, byteLength = 1, scale = 0.01, subtractSkipBytes = 0)
+        assertEquals(-0.17, FieldCodec.decode(spec, byteArrayOf(101, 84)), 1e-9)
+    }
+
+    @Test
     fun decodesUnsignedSingleByteWithOffset() {
         val spec = DecodeSpec(skipBytes = 2, byteLength = 1, offset = -40.0)
         val payload = byteArrayOf(0x21, 0x15, 0x50) // mode/DID echo + one data byte (0x50 = 80)

@@ -147,6 +147,18 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     decimals = 2,
                 ),
                 FieldDefinition(
+                    id = "engine.boost_relative",
+                    label = "Boost (relative)",
+                    unit = "bar",
+                    // Manifold pressure minus barometric pressure (both kPa in the same 21 00 reply), in bar.
+                    request = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
+                    decode = DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01, subtractSkipBytes = 46),
+                    gaugeMin = -1.0,
+                    gaugeMax = 1.0,
+                    decimals = 2,
+                    enabled = false,
+                ),
+                FieldDefinition(
                     id = "engine.rpm",
                     label = "Engine RPM",
                     unit = "rpm",

@@ -159,10 +159,24 @@ class DashboardViewModel(
         val learnedMax = if (newHigh || hi == null) value else hi
         registry.setLearnedRange(id, learnedMin, learnedMax)
         val (gaugeMin, gaugeMax) = learnedGaugeRange(learnedMin, learnedMax, listOfNotNull(field.warningThreshold, field.criticalThreshold))
-        registry.setGaugeMin(id, gaugeMin)
-        registry.setGaugeMax(id, gaugeMax)
-        _fields.value = registry.fields
-        persist()
+        // Only republish fields when the rounded scale actually changes; this runs inside the polling loop.
+        if (gaugeMin != field.gaugeMin || gaugeMax != field.gaugeMax) {
+            registry.setGaugeMin(id, gaugeMin)
+            registry.setGaugeMax(id, gaugeMax)
+            _fields.value = registry.fields
+        }
+        schedulePersist()
+    }
+
+    private var persistJob: Job? = null
+
+    // Saving the whole field config is slow; batch learned-range saves instead of writing per reading.
+    private fun schedulePersist() {
+        if (persistJob?.isActive == true) return
+        persistJob = scope.launch {
+            kotlinx.coroutines.delay(10_000)
+            persist()
+        }
     }
 
     /** Forgets a field's learned range so it is re-learned from the next drive. */

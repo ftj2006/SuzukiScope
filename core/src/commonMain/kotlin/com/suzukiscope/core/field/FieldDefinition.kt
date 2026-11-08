@@ -71,4 +71,6 @@ data class DecodeSpec(
     val signed: Boolean = false,
     val scale: Double = 1.0,
     val offset: Double = 0.0,
+    /** If set, the value at this offset (same length/sign/scale) is subtracted, e.g. barometric from manifold pressure. */
+    val subtractSkipBytes: Int? = null,
 )

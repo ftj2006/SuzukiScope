@@ -1,7 +1,8 @@
 package com.suzukiscope.ui
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,8 +45,13 @@ fun Gauge(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        // Eases the arc between readings instead of jumping; the number still shows the exact value.
-        val shownValue by animateFloatAsState(value.toFloat(), tween(250), label = "gaugeValue")
+        // A critically damped spring follows rapid new readings smoothly; a restarted tween kept
+        // re-entering its slow ease-in and barely moved.
+        val shownValue by animateFloatAsState(
+            value.toFloat(),
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
+            label = "gaugeValue",
+        )
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
                 val stroke = size.minDimension * 0.09f
