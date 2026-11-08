@@ -64,6 +64,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     var showNoDataFields by remember { mutableStateOf(false) }
     val vehicleProtocol by viewModel.vehicleProtocol.collectAsState()
     val autoLayout by viewModel.autoLayout.collectAsState()
+    val settingsExpanded by viewModel.settingsExpanded.collectAsState()
     var protocolMenuOpen by remember { mutableStateOf(false) }
     var pendingProtocol by remember { mutableStateOf<Elm327Protocol?>(null) }
     val busFields = fields.filter { it.busProtocol == vehicleProtocol }
@@ -92,6 +93,8 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     }
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
+        // Rarely changed settings live in a collapsible section so the field list gets most of the screen.
+        val settings: @Composable () -> Unit = {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -149,12 +152,6 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
             )
         }
-        OutlinedTextField(
-            value = filter,
-            onValueChange = { filter = it },
-            label = { Text("Search fields (${visible.size} listed, ${busFields.count { it.enabled }} selected)") },
-            modifier = Modifier.fillMaxWidth(),
-        )
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
             Checkbox(checked = showNoDataFields, onCheckedChange = { showNoDataFields = it })
             Text(
@@ -169,6 +166,17 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
         fieldProbeStatus?.let {
             Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
         }
+        }
+        TextButton(onClick = { viewModel.setSettingsExpanded(!settingsExpanded) }) {
+            Text(if (settingsExpanded) "Settings \u25BE" else "Settings \u25B8")
+        }
+        if (settingsExpanded) settings()
+        OutlinedTextField(
+            value = filter,
+            onValueChange = { filter = it },
+            label = { Text("Search fields (${visible.size} listed, ${busFields.count { it.enabled }} selected)") },
+            modifier = Modifier.fillMaxWidth(),
+        )
         Row(modifier = Modifier.padding(top = 8.dp)) {
             Text("Display", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.width(48.dp))
             Text("Record", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.width(48.dp))

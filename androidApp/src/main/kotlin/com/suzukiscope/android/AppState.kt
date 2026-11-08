@@ -196,6 +196,14 @@ object AppState {
         }
     }
 
+    /** Restores whether the Config tab's settings section was left open. */
+    fun initSettingsExpanded(file: File) {
+        runCatching { file.readText().trim().toBooleanStrict() }.getOrNull()?.let { dashboardViewModel.setSettingsExpanded(it) }
+        dashboardViewModel.settingsExpandedSink = { expanded ->
+            runCatching { file.parentFile?.mkdirs(); file.writeText(expanded.toString()) }
+        }
+    }
+
     /** Loads the previously-saved Wi-Fi adapter IP/port, if any (defaults to the standard ELM327 adapter). */
     fun initWifiConfig(file: File) {
         if (wifiConfigFile != null) return

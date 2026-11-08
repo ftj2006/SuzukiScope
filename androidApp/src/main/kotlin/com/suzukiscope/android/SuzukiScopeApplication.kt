@@ -14,6 +14,7 @@ class SuzukiScopeApplication : Application() {
         AppState.initPersistence(File(filesDir, "field-config.json"))
         AppState.initVehicleProtocol(File(filesDir, "vehicle-protocol.txt"))
         AppState.initAutoLayout(File(filesDir, "auto-layout.json"))
+        AppState.initSettingsExpanded(File(filesDir, "config-settings-open.txt"))
         AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
         AppState.initLastConnection(File(filesDir, "last-connection.txt"))
         AppState.initDtcModulesPersistence(File(filesDir, "dtc-unresponsive-modules.txt"))

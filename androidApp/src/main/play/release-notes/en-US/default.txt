@@ -1,5 +1,2 @@
-- Android Auto layout set in Config: rows with X-Large/Large size and width; drag gauges into row slots
-- Android Auto: Connect button only when disconnected, Record only when connected
-- Gauge scales only widen from learned readings (no more hair-trigger scales)
-- Steady value text size on Android Auto
-- Removing a gauge now updates Android Auto straight away
+- Config: settings in a collapsible section (remembered) so the field list has more room
+- Search box stays above the field list
