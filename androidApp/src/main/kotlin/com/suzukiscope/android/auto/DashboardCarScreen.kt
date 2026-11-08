@@ -5,6 +5,8 @@ import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.CarColor
+import androidx.car.app.model.OnClickListener
 import androidx.car.app.model.GridItem
 import androidx.car.app.model.GridTemplate
 import androidx.car.app.model.ItemList
@@ -123,32 +125,60 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
             )
         }
 
+        val recordIcon = if (isLogging) GaugeIcon.recordingFlashIcon(flashOn) else GaugeIcon.loggingStatusIcon(false)
+        val onRecord = OnClickListener {
+            if (isLogging) AppState.dashboardViewModel.stopLogging() else AppState.dashboardViewModel.startLogging()
+            invalidate()
+        }
+        val onConnect = OnClickListener { lifecycleScope.launch { AppState.toggleConnection() } }
+        val status = AppState.connectionStatus.value
+
+        if (carContext.carAppApiLevel >= 7) {
+            // No title/header action/action strip hides the host's header bar entirely; the two
+            // controls float over the grid instead, giving the gauges the full screen height.
+            return GridTemplate.Builder()
+                .setItemSize(GridTemplate.ITEM_SIZE_LARGE)
+                .setItemImageShape(GridTemplate.ITEM_IMAGE_SHAPE_CIRCLE)
+                .setSingleList(itemListBuilder.build())
+                .addAction(
+                    Action.Builder()
+                        .setIcon(GaugeIcon.loggingStatusIcon(isLogging))
+                        .setBackgroundColor(if (isLogging && flashOn) CarColor.RED else CarColor.SECONDARY)
+                        .setOnClickListener(onRecord)
+                        .build(),
+                )
+                .addAction(
+                    Action.Builder()
+                        .setIcon(GaugeIcon.connectionStatusIcon(isConnected))
+                        .setBackgroundColor(connectionColor(status, isConnected))
+                        .setOnClickListener(onConnect)
+                        .build(),
+                )
+                .build()
+        }
+
         val actionStrip = ActionStrip.Builder()
-            .addAction(
-                Action.Builder()
-                    .setIcon(if (isLogging) GaugeIcon.recordingFlashIcon(flashOn) else GaugeIcon.loggingStatusIcon(false))
-                    .setOnClickListener {
-                        if (isLogging) AppState.dashboardViewModel.stopLogging() else AppState.dashboardViewModel.startLogging()
-                        invalidate()
-                    }
-                    .build(),
-            )
-            .addAction(
-                Action.Builder()
-                    .setIcon(GaugeIcon.connectionStatusIcon(isConnected))
-                    .setOnClickListener { lifecycleScope.launch { AppState.toggleConnection() } }
-                    .build(),
-            )
+            .addAction(Action.Builder().setIcon(recordIcon).setOnClickListener(onRecord).build())
+            .addAction(Action.Builder().setIcon(GaugeIcon.connectionStatusIcon(isConnected)).setOnClickListener(onConnect).build())
             .build()
 
         return GridTemplate.Builder()
-            .setTitle(compactStatus(AppState.connectionStatus.value, isLogging))
+            .setTitle(compactStatus(status, isLogging))
             .setHeaderAction(Action.APP_ICON)
             .setItemSize(GridTemplate.ITEM_SIZE_LARGE)
             .setItemImageShape(GridTemplate.ITEM_IMAGE_SHAPE_CIRCLE)
             .setSingleList(itemListBuilder.build())
             .setActionStrip(actionStrip)
             .build()
+    }
+
+    /** With no header there's no status text, so the connect button's colour carries the state. */
+    private fun connectionColor(status: String, isConnected: Boolean): CarColor = when {
+        status.startsWith("Waiting for Wi-Fi") ||
+            status.contains("Connecting", ignoreCase = true) ||
+            status.contains("reconnecting", ignoreCase = true) -> CarColor.YELLOW
+        isConnected -> CarColor.GREEN
+        else -> CarColor.SECONDARY
     }
 
     /** Car template titles are host-styled (large, fixed size) so the only lever we have to make
