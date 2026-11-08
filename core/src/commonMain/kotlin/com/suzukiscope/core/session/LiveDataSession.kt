@@ -1,8 +1,6 @@
 package com.suzukiscope.core.session
 
 import com.suzukiscope.core.field.FieldDefinition
-import com.suzukiscope.core.field.RefreshRate
-import com.suzukiscope.core.field.effectiveRefresh
 import com.suzukiscope.core.log.Reading
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -24,28 +22,21 @@ interface LiveDataSource {
 }
 
 /**
- * Polls the enabled fields and emits [Reading]s: [RefreshRate.FAST] fields every cycle,
- * [RefreshRate.SLOW] ones every [slowIntervalMs]. Field set is supplied dynamically so the UI
+ * Polls the enabled fields every cycle and emits [Reading]s. Field set is supplied dynamically so the UI
  * can add/remove/toggle fields while polling is running.
  */
 class LiveDataSession(
     private val source: LiveDataSource,
     private val fieldsProvider: () -> List<FieldDefinition>,
     private val intervalMs: Long = 40,
-    private val slowIntervalMs: Long = 3000,
 ) {
     fun readings(): Flow<Reading> = flow {
         val failures = HashMap<String, Int>()
         val retryAt = HashMap<String, Long>()
-        var nextSlowAt = 0L
         while (true) {
             val now = currentTimeMillis()
-            val includeSlow = now >= nextSlowAt
-            if (includeSlow) nextSlowAt = now + slowIntervalMs
             val due = fieldsProvider().filter {
-                source.canPoll(it) &&
-                    (includeSlow || it.effectiveRefresh == RefreshRate.FAST) &&
-                    now >= (retryAt[it.id] ?: 0L)
+                source.canPoll(it) && now >= (retryAt[it.id] ?: 0L)
             }
             source.beginCycle(due)
             for (field in due) {

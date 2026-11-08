@@ -87,11 +87,11 @@ class DashboardViewModel(
     private var pollJob: Job? = null
     private var session = newSession()
 
-    // The adapter round trip already paces real hardware, so don't add an idle gap between cycles.
+    // Back-to-back requests with no gap overwhelmed the adapter's Wi-Fi until it dropped the link.
     private fun newSession() = LiveDataSession(
         source,
         fieldsProvider = { _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) } },
-        intervalMs = if (source is Elm327LiveDataSource) 0 else 40,
+        intervalMs = if (source is Elm327LiveDataSource) 50 else 40,
     )
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
     private var currentIoLogId: String? = null
@@ -105,11 +105,31 @@ class DashboardViewModel(
     private val _criticalEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val criticalEvents: SharedFlow<Unit> = _criticalEvents.asSharedFlow()
 
+    /** Enabled fields whose value hasn't updated recently, so a frozen feed isn't mistaken for a steady value. */
+    private val _staleFields = MutableStateFlow<Set<String>>(emptySet())
+    val staleFields: StateFlow<Set<String>> = _staleFields.asStateFlow()
+    private val fieldReadingAtMs = HashMap<String, Long>()
+    private var pollStartedAtMs = 0L
+
+    private suspend fun trackStaleFields() {
+        while (true) {
+            val now = currentTimeMillis()
+            val stale = _fields.value.filter { it.enabled }.filter { field ->
+                now - (fieldReadingAtMs[field.id] ?: pollStartedAtMs) > STALE_MS
+            }.map { it.id }.toSet()
+            if (stale != _staleFields.value) _staleFields.value = stale
+            kotlinx.coroutines.delay(250)
+        }
+    }
+
     fun start() {
         if (pollJob != null) return
+        pollStartedAtMs = currentTimeMillis()
         pollJob = scope.launch {
+            launch { trackStaleFields() }
             session.readings().collect { reading ->
                 lastReadingAtMs = currentTimeMillis()
+                fieldReadingAtMs[reading.fieldId] = lastReadingAtMs
                 _values.value = _values.value + (reading.fieldId to reading.value)
                 _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
                 // Only real vehicle data teaches the scale; test data would teach a fake range.
@@ -150,6 +170,9 @@ class DashboardViewModel(
     /** Milliseconds since the last successful reading — a long gap while on hardware means the
      * connection has likely dropped even though no exception ever reached this layer. */
     fun millisSinceLastReading(): Long = currentTimeMillis() - lastReadingAtMs
+
+    /** True once the adapter link itself has failed, so reconnecting needn't wait for the stall timeout. */
+    fun isTransportBroken(): Boolean = (source as? Elm327LiveDataSource)?.transportBroken == true
 
     /**
      * Learns each field's real operating range from the vehicle across drives (persisted), and
@@ -195,12 +218,6 @@ class DashboardViewModel(
         schedulePersist()
     }
 
-    fun setRefresh(id: String, refresh: com.suzukiscope.core.field.RefreshRate) {
-        registry.setRefresh(id, refresh)
-        _fields.value = registry.fields
-        persist()
-    }
-
     /** Forgets a field's learned range so it is re-learned from the next drive. */
     fun resetLearnedRange(id: String) {
         registry.setLearnedRange(id, null, null)
@@ -225,11 +242,13 @@ class DashboardViewModel(
 
     private companion object {
         const val WIDEN_AFTER_READINGS = 3
+        const val STALE_MS = 2000L
     }
 
     fun stop() {
         pollJob?.cancel()
         pollJob = null
+        _staleFields.value = emptySet()
     }
 
     suspend fun disconnectHardware() {
@@ -269,6 +288,7 @@ class DashboardViewModel(
         _values.value = emptyMap()
         _peaks.value = emptyMap()
         fieldsInCritical.clear()
+        fieldReadingAtMs.clear()
         lastReadingAtMs = currentTimeMillis()
         if (wasRunning || newSource is Elm327LiveDataSource) start()
     }

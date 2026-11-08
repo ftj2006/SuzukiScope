@@ -39,6 +39,7 @@ fun DashboardScreen(
     val fields by viewModel.fields.collectAsState()
     val values by viewModel.values.collectAsState()
     val peaks by viewModel.peaks.collectAsState()
+    val staleFields by viewModel.staleFields.collectAsState()
     val isLogging by viewModel.isLogging.collectAsState()
 
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
@@ -98,6 +99,7 @@ fun DashboardScreen(
                         warningThreshold = field.warningThreshold,
                         criticalThreshold = field.criticalThreshold,
                         decimals = field.decimals,
+                        stale = field.id in staleFields,
                     )
                 }
             }

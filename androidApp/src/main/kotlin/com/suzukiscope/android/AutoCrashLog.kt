@@ -34,4 +34,7 @@ object AutoCrashLog {
     }
 
     fun setEnabled(value: Boolean) { enabled = value }
+
+    /** The most recent part of the log, capped so a long-lived file stays shareable. */
+    fun contents(): String = file?.takeIf { it.exists() }?.readText()?.takeLast(200_000).orEmpty()
 }

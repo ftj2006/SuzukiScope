@@ -501,7 +501,7 @@ object AppState {
                     continue
                 }
                 val stalled = dashboardViewModel.isUsingHardwareSource() &&
-                    dashboardViewModel.millisSinceLastReading() > STALL_MS
+                    (dashboardViewModel.isTransportBroken() || dashboardViewModel.millisSinceLastReading() > STALL_MS)
                 if (!stalled) continue
                 val onWifi = dashboardViewModel.currentTransportName().startsWith("wifi://")
                 val blocked = if (onWifi) wifiBlockReason() else null

@@ -1,5 +1,7 @@
-- Faster: RPM, speed, throttle and boost via short standard OBD-II requests; temperatures/voltage update every 3 s (per field Fast/Slow)
-- A failing field no longer stalls the others
-- Gauges: steady number size, white digits, scale ends at the arc, "Peak" value
-- Config: selected fields always listed; clearer counts
-- Connection log adds timing (PERF) details
+- More stable Wi-Fi adapters: short gap between requests, late replies discarded, no adaptive timing
+- Lost connection detected at once and reconnected
+- Bluetooth: fixed connection failing on Android 12+
+- Gauges turn grey when their data stops updating
+- All fields update every cycle (Fast/Slow removed)
+- Android Auto: extra-large gauges for any count; min/max no longer cut off
+- Config: share debug logs from the bug icon

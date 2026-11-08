@@ -32,6 +32,7 @@ fun AppScreen(
     onExportCsv: (files: List<DashboardViewModel.ExportFile>) -> Unit,
     connectionBar: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onShareLogs: (() -> Unit)? = null,
 ) {
     var tab by remember { mutableStateOf(0) }
     val fields by dashboardViewModel.fields.collectAsState()
@@ -68,7 +69,7 @@ fun AppScreen(
         when (tab) {
             0 -> DashboardScreen(dashboardViewModel, onExportCsv, connectionBar, Modifier.fillMaxSize())
             1 -> HistoryScreen(dashboardViewModel, Modifier.fillMaxSize())
-            2 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize())
+            2 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize(), onShareLogs)
             else -> DtcScreen(dtcViewModel, moduleOptionsFrom(fields), Modifier.fillMaxSize())
         }
     }

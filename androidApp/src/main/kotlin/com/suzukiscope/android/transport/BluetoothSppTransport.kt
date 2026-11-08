@@ -19,7 +19,11 @@ class BluetoothSppTransport(
     private var socket: BluetoothSocket? = null
 
     override suspend fun connect() {
-        BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery()
+        // Only an optimisation; Android 12+ needs BLUETOOTH_SCAN for it, which the app doesn't need otherwise.
+        try {
+            BluetoothAdapter.getDefaultAdapter()?.cancelDiscovery()
+        } catch (_: SecurityException) {
+        }
         val s = device.createRfcommSocketToServiceRecord(SPP_UUID)
         s.connect()
         socket = s

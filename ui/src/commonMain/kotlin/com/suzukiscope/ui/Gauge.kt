@@ -25,6 +25,7 @@ import kotlin.math.sin
 
 private const val START_ANGLE = 135f
 private const val SWEEP_ANGLE = 270f
+private val STALE_COLOR = Color(0xFF757575)
 
 /**
  * A circular gauge showing the current value, a coloured arc for min..max, a tick mark for
@@ -42,6 +43,8 @@ fun Gauge(
     warningThreshold: Double? = null,
     criticalThreshold: Double? = null,
     decimals: Int? = null,
+    /** No recent reading: drawn grey so a frozen feed isn't mistaken for a steady value. */
+    stale: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -72,7 +75,7 @@ fun Gauge(
 
                 val fraction = ((shownValue - min) / (max - min)).coerceIn(0.0, 1.0)
                 drawArc(
-                    color = gaugeColor(fraction, value, warningThreshold, criticalThreshold),
+                    color = if (stale) STALE_COLOR else gaugeColor(fraction, value, warningThreshold, criticalThreshold),
                     startAngle = START_ANGLE,
                     sweepAngle = (SWEEP_ANGLE * fraction).toFloat(),
                     useCenter = false,
@@ -102,6 +105,7 @@ fun Gauge(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // White digits for readability; only warning/critical recolour the number.
                 val valueColor = when {
+                    stale -> STALE_COLOR
                     criticalThreshold != null && value >= criticalThreshold -> Color(0xFFE53935)
                     warningThreshold != null && value >= warningThreshold -> Color(0xFFFFB300)
                     else -> Color.White

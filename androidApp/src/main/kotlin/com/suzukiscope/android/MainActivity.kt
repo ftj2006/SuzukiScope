@@ -53,7 +53,14 @@ class MainActivity : ComponentActivity() {
 
     private val requestBluetoothPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted -> pendingBluetoothConnect?.let { if (granted) it() }; pendingBluetoothConnect = null }
+    ) { granted ->
+        if (granted) {
+            pendingBluetoothConnect?.invoke()
+        } else {
+            AppState.setStatus("Bluetooth needs the Nearby devices permission \u2014 allow it in Android settings > Apps > SuzukiScope > Permissions")
+        }
+        pendingBluetoothConnect = null
+    }
     private var pendingBluetoothConnect: (() -> Unit)? = null
 
     private val requestWifiSsidPermission = registerForActivityResult(
@@ -107,6 +114,7 @@ class MainActivity : ComponentActivity() {
                         dashboardViewModel = viewModel,
                         dtcViewModel = dtcViewModel,
                         onExportCsv = { files -> exportFiles(files) },
+                        onShareLogs = { shareDebugLogs() },
                         connectionBar = {
                             ConnectionBar(
                                 status = connectionStatus,
@@ -242,5 +250,36 @@ class MainActivity : ComponentActivity() {
 
     private fun exportFiles(files: List<com.suzukiscope.ui.DashboardViewModel.ExportFile>) {
         startActivity(ExportStore.openFolderIntent(this))
+    }
+
+    /** One text file with device details, every connection log and the crash log, for users to send in. */
+    private fun shareDebugLogs() {
+        val viewModel = AppState.dashboardViewModel
+        val report = buildString {
+            appendLine("SuzukiScope v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+            appendLine("Protocol: ${viewModel.vehicleProtocol.value}")
+            appendLine("Status: ${AppState.connectionStatus.value}")
+            appendLine()
+            appendLine("===== Connection logs =====")
+            appendLine(
+                viewModel.connectionLogsForExport().joinToString("\n\n") { "Connection ${it.id}\n${it.contents}" }
+                    .ifEmpty { "No connection logs recorded." },
+            )
+            appendLine()
+            appendLine("===== Crash and Android Auto log =====")
+            appendLine(AutoCrashLog.contents().ifEmpty { "Empty." })
+        }
+        val dir = java.io.File(cacheDir, "shared").apply { mkdirs() }
+        dir.listFiles()?.forEach { it.delete() }
+        val file = java.io.File(dir, "suzukiscope-debug-${System.currentTimeMillis()}.txt").apply { writeText(report) }
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, "SuzukiScope debug logs v${BuildConfig.VERSION_NAME}")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(send, "Share debug logs"))
     }
 }

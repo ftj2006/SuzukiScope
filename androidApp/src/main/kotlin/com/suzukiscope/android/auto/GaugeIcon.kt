@@ -20,6 +20,7 @@ object GaugeIcon {
     private const val SIZE_PX = 320
     private const val START_ANGLE = 135f
     private const val SWEEP_ANGLE = 270f
+    private val STALE_COLOR = Color.rgb(0x75, 0x75, 0x75)
 
     fun render(
         label: String,
@@ -31,6 +32,7 @@ object GaugeIcon {
         warningThreshold: Double?,
         criticalThreshold: Double?,
         decimals: Int? = null,
+        stale: Boolean = false,
     ): CarIcon {
         val bitmap = Bitmap.createBitmap(SIZE_PX, SIZE_PX, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -50,7 +52,7 @@ object GaugeIcon {
         canvas.drawArc(rect, START_ANGLE, SWEEP_ANGLE, false, trackPaint)
 
         val fraction = ((value - min) / (max - min)).coerceIn(0.0, 1.0)
-        val color = colorFor(fraction, value, warningThreshold, criticalThreshold)
+        val color = if (stale) STALE_COLOR else colorFor(fraction, value, warningThreshold, criticalThreshold)
         val valuePaint = Paint(trackPaint).apply { this.color = color }
         canvas.drawArc(rect, START_ANGLE, (SWEEP_ANGLE * fraction).toFloat(), false, valuePaint)
 
@@ -74,7 +76,7 @@ object GaugeIcon {
         val text = formatValue(value, decimals) + valueSuffix(unit)
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             // Readable white digits; only warning/critical recolour the number itself.
-            this.color = alertColor(value, warningThreshold, criticalThreshold) ?: Color.WHITE
+            this.color = if (stale) STALE_COLOR else alertColor(value, warningThreshold, criticalThreshold) ?: Color.WHITE
             textAlign = Paint.Align.CENTER
             isFakeBoldText = true
             // Tabular digits so the number doesn't shift as individual digits change.
@@ -101,12 +103,12 @@ object GaugeIcon {
             canvas.drawText("Peak ${formatValue(peak, decimals)}${valueSuffix(unit)}", centerX, valueBaselineY + smallPaint.textSize * 1.4f, smallPaint)
         }
 
-        // Scale ends sit just below the two ends of the arc, like the markings on a real gauge.
+        // Scale ends sit just inside the arc ends; below them the host's circular crop cuts them off.
         val scalePaint = Paint(smallPaint).apply { textSize = SIZE_PX * 0.075f }
-        val endY = centerY + radius * Math.sin(Math.toRadians(START_ANGLE.toDouble())).toFloat() + stroke * 0.6f + scalePaint.textSize
-        val endDx = radius * Math.cos(Math.toRadians(START_ANGLE.toDouble())).toFloat()
-        canvas.drawText(formatValue(min, decimals), centerX + endDx, endY, scalePaint)
-        canvas.drawText(formatValue(max, decimals), centerX - endDx, endY, scalePaint)
+        val endY = centerY + radius * Math.sin(Math.toRadians(START_ANGLE.toDouble())).toFloat() + scalePaint.textSize * 0.35f
+        val endDx = -radius * Math.cos(Math.toRadians(START_ANGLE.toDouble())).toFloat() - stroke
+        canvas.drawText(formatValue(min, decimals), centerX - endDx, endY, Paint(scalePaint).apply { textAlign = Paint.Align.LEFT })
+        canvas.drawText(formatValue(max, decimals), centerX + endDx, endY, Paint(scalePaint).apply { textAlign = Paint.Align.RIGHT })
 
         return CarIcon.Builder(IconCompat.createWithBitmap(bitmap)).build()
     }

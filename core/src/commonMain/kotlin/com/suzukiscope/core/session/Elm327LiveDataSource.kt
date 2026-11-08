@@ -6,8 +6,6 @@ import com.suzukiscope.core.elm327.busProtocol
 import com.suzukiscope.core.field.FieldCodec
 import com.suzukiscope.core.field.FieldDefinition
 import com.suzukiscope.core.field.OBD_MODE_CURRENT_DATA
-import com.suzukiscope.core.field.RefreshRate
-import com.suzukiscope.core.field.effectiveRefresh
 import com.suzukiscope.core.log.Elm327IoLog
 import com.suzukiscope.core.log.IoDirection
 import com.suzukiscope.core.log.describeError
@@ -38,6 +36,7 @@ class Elm327LiveDataSource(
     val transportName: String get() = transport.name
     /** Exposed so other features (e.g. DTC read/clear) can share this connection's client. */
     val client = Elm327Client(transport, ioLog)
+    val transportBroken: Boolean get() = client.transportBroken
     private var initialised = false
     private var lastHeader: List<Int>? = null
     private var canConfiguration: Int? = null
@@ -99,17 +98,8 @@ class Elm327LiveDataSource(
         }
         ioLog.append(IoDirection.RECEIVED, "ELM327 initialised for $protocol")
         initialised = true
-        if (protocol == Elm327Protocol.CAN_11BIT_500K) {
-            enableAdaptiveTiming()
-            querySupportedPids()
-        }
-    }
-
-    // Adaptive timing lets the adapter stop waiting soon after the last frame of a reply instead
-    // of always waiting out the full ATST timeout; harmless if a clone ignores it.
-    private suspend fun enableAdaptiveTiming() {
-        val reply = runCatching { client.sendCommand("ATAT1") }.getOrElse { describeError(it) }
-        ioLog.append(IoDirection.RECEIVED, "adaptive timing (ATAT1): $reply")
+        // No ATAT1: on Suzuki CAN adaptive timing cuts off the tail of slow multi-frame replies.
+        if (protocol == Elm327Protocol.CAN_11BIT_500K) querySupportedPids()
     }
 
     private suspend fun querySupportedPids() {
@@ -330,7 +320,7 @@ class Elm327LiveDataSource(
     }
 
     private fun logPlanIfChanged(fields: List<FieldDefinition>) {
-        if (fields.none { it.effectiveRefresh == RefreshRate.SLOW } && lastPlan != null) return
+        if (lastPlan != null) return
         val plan = fields.joinToString(", ") { f ->
             val r = resolve(f)
             val via = if (r.request.mode == OBD_MODE_CURRENT_DATA) {
@@ -338,7 +328,7 @@ class Elm327LiveDataSource(
             } else {
                 "%02X %s".format(r.request.mode, r.request.params.joinToString(" ") { "%02X".format(it) })
             }
-            "${f.id} [${f.effectiveRefresh.name.lowercase()}, $via]"
+            "${f.id} [$via]"
         }
         if (plan == lastPlan) return
         lastPlan = plan

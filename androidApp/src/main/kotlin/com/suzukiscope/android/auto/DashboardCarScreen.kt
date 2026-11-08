@@ -28,7 +28,6 @@ private const val REFRESH_MS = 300L
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
-private const val MAX_EXTRA_LARGE_GAUGES = 3
 
 /**
  * Grid slots (gauge index, or null for an invisible spacer) that spread [count] gauges evenly
@@ -84,6 +83,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                         launch { AppState.connectionStatus.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.values.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.peaks.collect { dirty = true } }
+                        launch { AppState.dashboardViewModel.staleFields.collect { dirty = true } }
                         launch { AppState.dashboardViewModel.isLogging.collect { dirty = true } }
                         launch {
                             AppState.recordingSaved.collect { path ->
@@ -124,6 +124,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val fields = AppState.dashboardViewModel.fields.value.filter { it.enabled }
         val values = AppState.dashboardViewModel.values.value
         val peaks = AppState.dashboardViewModel.peaks.value
+        val staleFields = AppState.dashboardViewModel.staleFields.value
         val isLogging = AppState.dashboardViewModel.isLogging.value
         val isConnected = AppState.dashboardViewModel.isUsingHardwareSource()
 
@@ -142,6 +143,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                         field.warningThreshold,
                         field.criticalThreshold,
                         field.decimals,
+                        field.id in staleFields,
                     ),
                     GridItem.IMAGE_TYPE_LARGE,
                 )
@@ -181,7 +183,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
 
             // The plain grid's largest tile leaves most of the screen empty with only a few gauges;
             // the sectioned grid (Car API 8) offers an extra-large tile size.
-            if (carContext.carAppApiLevel >= 8 && fields.size in 1..MAX_EXTRA_LARGE_GAUGES) {
+            if (carContext.carAppApiLevel >= 8 && fields.isNotEmpty()) {
                 return SectionedItemTemplate.Builder()
                     .addSection(
                         GridSection.Builder()

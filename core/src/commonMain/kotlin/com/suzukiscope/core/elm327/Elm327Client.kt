@@ -34,25 +34,56 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     suspend fun connect() = transport.connect()
     suspend fun disconnect() = transport.disconnect()
 
+    /** Set once the link itself has failed (write error, connection reset); only a reconnect helps. */
+    var transportBroken = false
+        private set
+
+    // A reply that missed its timeout still arrives later and would be taken as the next command's answer.
+    private var lateReplyPending = false
+
     /** Sends a raw AT/hex command, terminated with CR, and returns the trimmed text response. */
     suspend fun sendCommand(command: String, timeoutMs: Long = 2000): String = mutex.withLock {
         val cmd = command.trim()
+        if (transportBroken) throw IllegalStateException("adapter connection lost")
+        if (lateReplyPending) {
+            lateReplyPending = false
+            drainLateReply()
+        }
         ioLog?.append(IoDirection.SENT, cmd)
         try {
             transport.write((cmd + "\r").encodeToByteArray())
         } catch (e: Exception) {
+            transportBroken = true
             ioLog?.append(IoDirection.ERROR, "write failed for '$cmd': ${describeError(e)}")
             throw e
         }
         val raw = try {
             transport.readUntil('>'.code.toByte(), timeoutMs)
         } catch (e: Exception) {
+            if (isTimeout(e)) lateReplyPending = true else transportBroken = true
             ioLog?.append(IoDirection.ERROR, "no response to '$cmd' within ${timeoutMs}ms: ${describeError(e)}")
             throw e
         }
         val rawText = raw.decodeToString()
+        // Transports that return a partial read on timeout instead of throwing.
+        if (!rawText.endsWith('>')) lateReplyPending = true
         ioLog?.append(IoDirection.RECEIVED, rawText.replace("\r", "\\r").replace("\n", "\\n"))
         cleanResponse(rawText)
+    }
+
+    private fun isTimeout(e: Throwable): Boolean =
+        e::class.simpleName.orEmpty().contains("Timeout") || e.message.orEmpty().contains("timed out", ignoreCase = true)
+
+    private suspend fun drainLateReply() {
+        repeat(5) {
+            val stale = try {
+                transport.readUntil('>'.code.toByte(), LATE_REPLY_WAIT_MS)
+            } catch (e: Exception) {
+                return
+            }
+            if (stale.isEmpty()) return
+            ioLog?.append(IoDirection.RECEIVED, "discarded late reply: " + stale.decodeToString().replace("\r", "\\r").replace("\n", "\\n"))
+        }
     }
 
     /** Common ELM327 setup used by the original SZ Viewer before selecting a bus protocol. */
@@ -123,6 +154,8 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     }
 
     companion object {
+        private const val LATE_REPLY_WAIT_MS = 150L
+
         /** Strips echo of the command, the '>' prompt, whitespace, and "SEARCHING..."/error noise. */
         internal fun cleanResponse(raw: String): String =
             raw.replace(">", "")

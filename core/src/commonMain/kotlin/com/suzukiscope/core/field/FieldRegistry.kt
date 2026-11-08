@@ -40,9 +40,6 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     fun setLearnedRange(id: String, min: Double?, max: Double?) {
         _fields[id]?.let { _fields[id] = it.copy(learnedMin = min, learnedMax = max) }
     }
-    fun setRefresh(id: String, refresh: RefreshRate?) {
-        _fields[id]?.let { _fields[id] = it.copy(refresh = refresh) }
-    }
     fun get(id: String): FieldDefinition? = _fields[id]
 
     /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
@@ -92,7 +89,6 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                 verifiedNoData = persisted.verifiedNoData,
                 learnedMin = persisted.learnedMin,
                 learnedMax = persisted.learnedMax,
-                refresh = persisted.refresh,
             ) ?: persisted
         }
         for ((id, field) in _fields) {
