@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -64,7 +65,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     var showNoDataFields by remember { mutableStateOf(false) }
     val vehicleProtocol by viewModel.vehicleProtocol.collectAsState()
     val autoLayout by viewModel.autoLayout.collectAsState()
-    val settingsExpanded by viewModel.settingsExpanded.collectAsState()
+    var settingsExpanded by remember { mutableStateOf(false) }
     var protocolMenuOpen by remember { mutableStateOf(false) }
     var pendingProtocol by remember { mutableStateOf<Elm327Protocol?>(null) }
     val busFields = fields.filter { it.busProtocol == vehicleProtocol }
@@ -167,7 +168,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
             Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
         }
         }
-        TextButton(onClick = { viewModel.setSettingsExpanded(!settingsExpanded) }) {
+        TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
             Text(if (settingsExpanded) "Settings \u25BE" else "Settings \u25B8")
         }
         if (settingsExpanded) settings()
@@ -175,6 +176,14 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
             value = filter,
             onValueChange = { filter = it },
             label = { Text("Search fields (${visible.size} listed, ${busFields.count { it.enabled }} selected)") },
+            trailingIcon = if (filter.isEmpty()) null else {
+                {
+                    IconButton(onClick = { filter = "" }) {
+                        androidx.compose.material3.Icon(Icons.Filled.Clear, contentDescription = "Clear search")
+                    }
+                }
+            },
+            singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(modifier = Modifier.padding(top = 8.dp)) {

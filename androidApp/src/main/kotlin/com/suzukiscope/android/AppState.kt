@@ -162,6 +162,7 @@ object AppState {
         dashboardViewModel.refreshFields()
         resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v2.txt"))
         resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v3.txt"), setOf("engine.boost_pressure", "engine.boost_relative"))
+        resetDefaultScalesOnce(File(file.parentFile, "gauge-defaults-v4.txt"), setOf("engine.boost_relative"))
         dashboardViewModel.widenLearnedScales()
     }
 
@@ -193,14 +194,6 @@ object AppState {
             ?.let { dashboardViewModel.setAutoLayout(it) }
         dashboardViewModel.autoLayoutSink = { config ->
             runCatching { file.parentFile?.mkdirs(); file.writeText(config.toJson()) }
-        }
-    }
-
-    /** Restores whether the Config tab's settings section was left open. */
-    fun initSettingsExpanded(file: File) {
-        runCatching { file.readText().trim().toBooleanStrict() }.getOrNull()?.let { dashboardViewModel.setSettingsExpanded(it) }
-        dashboardViewModel.settingsExpandedSink = { expanded ->
-            runCatching { file.parentFile?.mkdirs(); file.writeText(expanded.toString()) }
         }
     }
 

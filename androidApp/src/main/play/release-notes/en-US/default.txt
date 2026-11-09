@@ -1,2 +1,4 @@
-- Config: settings in a collapsible section (remembered) so the field list has more room
-- Search box stays above the field list
+- Test build: Android Auto redraws twice as often; shorter adapter reply timeout for faster updates
+- Connection log adds Android Auto redraw timing (AA PERF)
+- Config: settings start collapsed; X button clears the search
+- Relative boost scale now -0.1 to 1.65 bar

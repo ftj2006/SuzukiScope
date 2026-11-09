@@ -143,7 +143,8 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATFCSH%03X".format(requestId))
         sendCommand("ATFCSD300000")
         sendCommand("ATFCSM1")
-        sendCommand("ATST10")
+        // 32 ms end-of-reply wait (ATST is in 4 ms units); was 64 ms.
+        sendCommand("ATST08")
     }
 
     /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */

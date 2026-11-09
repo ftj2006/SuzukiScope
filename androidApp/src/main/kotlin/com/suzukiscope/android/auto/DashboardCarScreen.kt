@@ -27,7 +27,8 @@ import com.suzukiscope.core.layout.arrange
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val REFRESH_MS = 300L
+private const val REFRESH_MS = 150L
+private const val PERF_WINDOW_MS = 10_000L
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
@@ -78,6 +79,39 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
     private var dirty = false
     private var flashOn = true
 
+    // Redraw statistics, written to the connection log every PERF_WINDOW_MS as an "AA PERF" line.
+    private var invalidatedAt = 0L
+    private var invalidations = 0
+    private var redraws = 0
+    private var buildTotalMs = 0L
+    private var buildMaxMs = 0L
+    private var waitTotalMs = 0L
+    private var waitMaxMs = 0L
+    private var windowStart = 0L
+
+    /** [waited] is how long the host took to ask for the template after we invalidated. */
+    private fun recordRedraw(start: Long, waited: Long?) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (windowStart == 0L) windowStart = start
+        val build = now - start
+        redraws++
+        buildTotalMs += build
+        buildMaxMs = maxOf(buildMaxMs, build)
+        waited?.let { waitTotalMs += it; waitMaxMs = maxOf(waitMaxMs, it) }
+        if (now - windowStart < PERF_WINDOW_MS) return
+        AppState.dashboardViewModel.logConnectionEvent(
+            "AA PERF ${(now - windowStart) / 1000.0}s: $redraws redraws for $invalidations requests (every $REFRESH_MS ms); " +
+                "build avg ${buildTotalMs / redraws} ms max $buildMaxMs ms; host wait avg ${waitTotalMs / redraws} ms max $waitMaxMs ms",
+        )
+        invalidations = 0
+        redraws = 0
+        buildTotalMs = 0
+        buildMaxMs = 0
+        waitTotalMs = 0
+        waitMaxMs = 0
+        windowStart = now
+    }
+
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
@@ -99,12 +133,15 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                             var tick = 0
                             while (true) {
                                 delay(REFRESH_MS)
-                                if (AppState.dashboardViewModel.isLogging.value && ++tick % 2 == 0) {
+                                // Flash toggles every 600 ms regardless of the refresh interval.
+                                if (AppState.dashboardViewModel.isLogging.value && ++tick % (600L / REFRESH_MS).toInt() == 0) {
                                     flashOn = !flashOn
                                     dirty = true
                                 }
                                 if (dirty) {
                                     dirty = false
+                                    if (invalidatedAt == 0L) invalidatedAt = android.os.SystemClock.elapsedRealtime()
+                                    invalidations++
                                     invalidate()
                                 }
                             }
@@ -116,7 +153,10 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     override fun onGetTemplate(): Template = try {
-        buildTemplate()
+        val start = android.os.SystemClock.elapsedRealtime()
+        val waited = if (invalidatedAt > 0L) start - invalidatedAt else null
+        invalidatedAt = 0L
+        buildTemplate().also { recordRedraw(start, waited) }
     } catch (e: Throwable) {
         com.suzukiscope.android.AutoCrashLog.append("Android Auto dashboard template failed", e)
         androidx.car.app.model.MessageTemplate.Builder("Android Auto dashboard failed. See Debug logs on the phone.")

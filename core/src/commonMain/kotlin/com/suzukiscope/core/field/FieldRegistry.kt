@@ -190,7 +190,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     request = obd(0x0B, 0x33),
                     decode = DecodeSpec(skipBytes = 2, byteLength = 1, scale = 0.01, subtractSkipBytes = 4),
                     fallback = FieldFallback(SUZUKI_ENGINE_00, DecodeSpec(skipBytes = 149, byteLength = 1, scale = 0.01, subtractSkipBytes = 46)),
-                    gaugeMin = -0.3,
+                    gaugeMin = -0.1,
                     gaugeMax = 1.65,
                     warningThreshold = 1.45,
                     criticalThreshold = 1.5,

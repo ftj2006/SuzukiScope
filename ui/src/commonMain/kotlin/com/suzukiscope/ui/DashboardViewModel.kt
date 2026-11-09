@@ -82,15 +82,6 @@ class DashboardViewModel(
     private val _autoLayout = MutableStateFlow(com.suzukiscope.core.layout.AutoLayoutConfig())
     val autoLayout: StateFlow<com.suzukiscope.core.layout.AutoLayoutConfig> = _autoLayout.asStateFlow()
     var autoLayoutSink: ((com.suzukiscope.core.layout.AutoLayoutConfig) -> Unit)? = null
-
-    /** Whether the Config tab's settings section is open; remembered between app launches. */
-    private val _settingsExpanded = MutableStateFlow(true)
-    val settingsExpanded: StateFlow<Boolean> = _settingsExpanded.asStateFlow()
-    var settingsExpandedSink: ((Boolean) -> Unit)? = null
-    fun setSettingsExpanded(expanded: Boolean) {
-        _settingsExpanded.value = expanded
-        settingsExpandedSink?.invoke(expanded)
-    }
     private val connectionLogs = ArrayList<ConnectionLog>()
 
     /** Progress/result text for [probeAllFieldsForData]; null when no pass is running/just finished. */
