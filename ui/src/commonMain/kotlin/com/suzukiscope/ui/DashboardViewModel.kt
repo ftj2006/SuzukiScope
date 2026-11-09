@@ -515,7 +515,24 @@ class DashboardViewModel(
     }
 
     /** Pauses polling and probes the engine ECU's data tables (see [Elm327LiveDataSource.probeLocalTables]). */
-    suspend fun probeEcuTables() {
+    suspend fun probeEcuTables() = withPollingPaused("Table probe") { liveSource, progress ->
+        val summary = liveSource.probeLocalTables { index, total -> progress("Probing ECU table $index/$total") }
+        "Table probe done: $summary. Export the connection log to share it."
+    }
+
+    /** Pauses polling and tries the experimental one-frame fast table (see [Elm327LiveDataSource.testFastTable]). */
+    suspend fun testFastTable() = withPollingPaused("Fast table test") { liveSource, progress ->
+        "Fast table test: ${liveSource.testFastTable(progress)}. Export the connection log to share it."
+    }
+
+    /** Pauses polling, reads every known engine table and saves them to a dated file. */
+    suspend fun saveEcuSnapshot() = withPollingPaused("ECU snapshot") { liveSource, progress ->
+        val id = newSessionId()
+        exportSink(listOf(ExportFile("pj-suzukiscope-ecu-snapshot-$id.txt", "Snapshot $id\n" + liveSource.readEcuSnapshot(progress))))
+        "ECU snapshot saved as pj-suzukiscope-ecu-snapshot-$id.txt in Documents/SuzukiScope"
+    }
+
+    private suspend fun withPollingPaused(task: String, block: suspend (Elm327LiveDataSource, (String) -> Unit) -> String) {
         val liveSource = source as? Elm327LiveDataSource
         if (liveSource == null || liveSource.protocol != Elm327Protocol.CAN_11BIT_500K) {
             _fieldProbeStatus.value = "Connect to the real adapter on CAN first"
@@ -524,16 +541,15 @@ class DashboardViewModel(
         val wasRunning = pollJob != null
         stop()
         try {
-            val summary = liveSource.probeLocalTables { index, total ->
+            _fieldProbeStatus.value = block(liveSource) { message ->
                 // Keeps the auto-reconnect watchdog from treating the paused polling as a stall.
                 lastReadingAtMs = currentTimeMillis()
-                _fieldProbeStatus.value = "Probing ECU table $index/$total"
+                _fieldProbeStatus.value = message
             }
-            _fieldProbeStatus.value = "Table probe done: $summary. Export the connection log to share it."
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _fieldProbeStatus.value = "Table probe failed: ${e.message}"
+            _fieldProbeStatus.value = "$task failed: ${e.message}"
         } finally {
             lastReadingAtMs = currentTimeMillis()
             if (wasRunning && source === liveSource) start()

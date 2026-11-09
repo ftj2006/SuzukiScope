@@ -65,6 +65,9 @@ class Elm327LiveDataSource(
     private var windowStartMs = 0L
     private var lastPlan: String? = null
 
+    // null = not tried yet; false once the adapter rejects or mishandles the response-count digit.
+    private var responseCountDigit: Boolean? = null
+
     override fun beginCycle(fields: List<FieldDefinition>) {
         requestCache.clear()
         obdValues.clear()
@@ -244,7 +247,10 @@ class Elm327LiveDataSource(
             requestPayload.joinToString("") { "%02X".format(it) }
         val rawAnswer = (requestCache[cacheKey] ?: run {
             // The 210-byte 21 00 reply sometimes takes 500-800 ms; discarding it froze the gauges for longer.
-            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 800 else 1000) }
+            val result = runCatching {
+                if (protocol == Elm327Protocol.CAN_11BIT_500K) timedRequest(requestPayload, 800, singleResponse = true)
+                else timedRequest(requestPayload, 1000)
+            }
             requestCache[cacheKey] = result
             result
         }).getOrThrow()
@@ -324,12 +330,12 @@ class Elm327LiveDataSource(
         lastHeader = header
     }
 
-    private suspend fun timedRequest(payload: ByteArray, timeoutMs: Long): ByteArray {
+    private suspend fun timedRequest(payload: ByteArray, timeoutMs: Long, singleResponse: Boolean = false): ByteArray {
         val key = payload.joinToString("") { "%02X".format(it) }
         val stats = requestStats.getOrPut(key) { RequestStats() }
         val start = currentTimeMillis()
         try {
-            return client.requestHex(payload, timeoutMs)
+            return if (singleResponse) requestSingle(payload, timeoutMs) else client.requestHex(payload, timeoutMs)
         } catch (e: Exception) {
             stats.failures++
             throw e
@@ -340,6 +346,135 @@ class Elm327LiveDataSource(
             if (elapsed > stats.maxMs) stats.maxMs = elapsed
         }
     }
+
+    /** Asks for exactly one reply (response-count digit) so the adapter skips its ATST end-of-reply wait. */
+    private suspend fun requestSingle(payload: ByteArray, timeoutMs: Long): ByteArray {
+        if (responseCountDigit == false) return client.requestHex(payload, timeoutMs)
+        try {
+            val answer = client.requestHex(payload, timeoutMs, expectedResponses = 1)
+            if (responseCountDigit == null) {
+                responseCountDigit = true
+                ioLog.append(IoDirection.RECEIVED, "adapter accepts the response-count digit; end-of-reply wait skipped")
+            }
+            return answer
+        } catch (e: Exception) {
+            val message = e.message.orEmpty()
+            val digitProblem = message.endsWith("rejected request: ?") || message.startsWith(Elm327Client.TRUNCATED_REPLY)
+            if (responseCountDigit != null || !digitProblem) throw e
+            responseCountDigit = false
+            ioLog.append(IoDirection.ERROR, "response-count digit not usable ($message); using plain requests")
+            return client.requestHex(payload, timeoutMs)
+        }
+    }
+
+    /**
+     * Experimental: asks the ECU (KWP2000 service 2C) to build a one-frame table holding RPM,
+     * throttle, speed and manifold pressure taken from `21 00`, then reads it next to `21 00` to
+     * check the values agree. The definition is cleared again afterwards. Returns a summary.
+     */
+    suspend fun testFastTable(onProgress: (String) -> Unit): String {
+        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Fast table test needs a CAN connection" }
+        ensureCanHeader(ENGINE_ECU)
+        val count = if (responseCountDigit == true) 1 else null
+        ioLog.append(IoDirection.RECEIVED, "FAST TABLE test start: dynamic id %02X, response-count digit %s".format(FAST_TABLE_ID, if (count != null) "on" else "off"))
+        runCatching { client.requestHex(byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x04), 1000) }
+        var position = 1
+        for (entry in FAST_TABLE_ENTRIES) {
+            onProgress("Defining fast table: ${entry.name}")
+            // 2C <id> 01 (define by local id) <position in new table> <size> <source local id 00> <1-based position in 21 00 record>
+            val define = byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x01, position.toByte(), entry.size.toByte(), 0x00, (entry.recordOffset + 1).toByte())
+            val result = runCatching { client.requestHex(define, 1000) }
+            val reply = result.getOrNull()
+            if (reply == null || reply.firstOrNull() != 0x6C.toByte()) {
+                val why = when {
+                    reply == null -> describeError(result.exceptionOrNull()!!)
+                    reply.size >= 3 && reply[0] == 0x7F.toByte() -> "refused, NRC %02X".format(reply[2].toInt() and 0xFF)
+                    else -> "unexpected reply " + reply.toHex()
+                }
+                ioLog.append(IoDirection.ERROR, "FAST TABLE define '${entry.name}' failed: $why")
+                return "ECU would not define the fast table (${entry.name}: $why)"
+            }
+            position += entry.size
+        }
+        var fastMs = 0L
+        var fullMs = 0L
+        var matches = 0
+        var shiftedMatches = 0
+        val reads = 5
+        try {
+            for (i in 1..reads) {
+                onProgress("Reading fast table $i/$reads")
+                var start = currentTimeMillis()
+                val fast = client.requestHex(byteArrayOf(0x21, FAST_TABLE_ID.toByte()), 1000, count)
+                fastMs += currentTimeMillis() - start
+                start = currentTimeMillis()
+                val full = client.requestHex(byteArrayOf(0x21, 0x00), 1000, count)
+                fullMs += currentTimeMillis() - start
+                val fastValues = decodeFastTable(fast.drop(2), sequential = true)
+                val fullValues = decodeFastTable(full.drop(2))
+                val shiftedValues = decodeFastTable(full.drop(2), shift = 1)
+                if (fastValues != null && fullValues != null && closeEnough(fastValues, fullValues)) matches++
+                if (fastValues != null && shiftedValues != null && closeEnough(fastValues, shiftedValues)) shiftedMatches++
+                ioLog.append(
+                    IoDirection.RECEIVED,
+                    "FAST TABLE read $i: 21%02X %s -> %s | 21 00 -> %s | 21 00 one byte later -> %s".format(
+                        FAST_TABLE_ID, fast.toHex(), fastValues.describe(), fullValues.describe(), shiftedValues.describe(),
+                    ),
+                )
+                delay(50)
+            }
+        } finally {
+            runCatching { client.requestHex(byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x04), 1000) }
+        }
+        val summary = "fast table avg ${fastMs / reads} ms vs 21 00 avg ${fullMs / reads} ms; " +
+            "values match in $matches/$reads reads (one byte later: $shiftedMatches/$reads)"
+        ioLog.append(IoDirection.RECEIVED, "FAST TABLE done: $summary")
+        return summary
+    }
+
+    // sequential = fields packed back to back (the fast table); otherwise each at its 21 00 offset plus [shift].
+    private fun decodeFastTable(record: List<Byte>, sequential: Boolean = false, shift: Int = 0): List<Double>? {
+        var cursor = 0
+        return FAST_TABLE_ENTRIES.map { entry ->
+            val at = if (sequential) cursor else entry.recordOffset + shift
+            cursor += entry.size
+            if (at < 0 || at + entry.size > record.size) return null
+            var raw = 0L
+            for (k in 0 until entry.size) raw = (raw shl 8) or (record[at + k].toLong() and 0xFF)
+            raw * entry.scale
+        }
+    }
+
+    private fun closeEnough(a: List<Double>, b: List<Double>): Boolean =
+        a.indices.all { kotlin.math.abs(a[it] - b[it]) <= FAST_TABLE_ENTRIES[it].tolerance }
+
+    private fun List<Double>?.describe(): String = this?.let { values ->
+        FAST_TABLE_ENTRIES.indices.joinToString(" ") { "${FAST_TABLE_ENTRIES[it].name}=${"%.1f".format(values[it])}" }
+    } ?: "too short"
+
+    /** Reads every engine table the ECU answered in the probe, as a dated text record for later comparison. */
+    suspend fun readEcuSnapshot(onProgress: (String) -> Unit): String {
+        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "ECU snapshot needs a CAN connection" }
+        ensureCanHeader(ENGINE_ECU)
+        val lines = ArrayList<String>()
+        for ((index, id) in SNAPSHOT_TABLES.withIndex()) {
+            onProgress("Reading ECU table ${index + 1}/${SNAPSHOT_TABLES.size}")
+            val result = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500) }
+            val line = result.fold(
+                onSuccess = { bytes ->
+                    val text = if (id == 0xD0) "  (text: " + bytes.drop(2).map { b -> val c = b.toInt() and 0xFF; if (c in 0x20..0x7E) c.toChar() else '.' }.joinToString("") + ")" else ""
+                    "21%02X %3d bytes: %s%s".format(id, bytes.size - 2, bytes.toHex(), text)
+                },
+                onFailure = { "21%02X failed: %s".format(id, describeError(it)) },
+            )
+            lines += line
+            delay(50)
+        }
+        ioLog.append(IoDirection.RECEIVED, "ECU SNAPSHOT read ${lines.count { !it.contains("failed") }}/${SNAPSHOT_TABLES.size} tables")
+        return "ECU %03X tables (KWP2000 service 21)\n".format(ENGINE_ECU) + lines.joinToString("\n")
+    }
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02X".format(it) }
 
     private fun logPerformance(now: Long) {
         val windowMs = now - windowStartMs
@@ -379,6 +514,21 @@ class Elm327LiveDataSource(
         const val PERF_WINDOW_MS = 10_000L
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
+
+        private class FastTableEntry(val name: String, val size: Int, val recordOffset: Int, val scale: Double, val tolerance: Double)
+
+        // Offsets are 0-based within the 21 00 record (after the 61 00 header); 5 bytes fit one CAN frame.
+        const val FAST_TABLE_ID = 0xF0
+        private val FAST_TABLE_ENTRIES = listOf(
+            FastTableEntry("rpm", 2, 35, 0.25, 150.0),
+            FastTableEntry("throttle", 1, 64, 0.39215686274509803, 5.0),
+            FastTableEntry("speed", 1, 40, 1.0, 3.0),
+            FastTableEntry("map", 1, 147, 1.0, 5.0),
+        )
+
+        // Tables the engine ECU answered in the 21 00-21 FF probe.
+        val SNAPSHOT_TABLES = listOf(0x00, 0x27, 0x28, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x3A, 0x3C, 0x3D) +
+            (0x40..0x49).toList() + listOf(0xA2, 0xD0)
 
         // Data bytes per standard OBD-II mode 01 PID (SAE J1979), needed to split batched replies.
         val PID_DATA_LENGTHS = mapOf(

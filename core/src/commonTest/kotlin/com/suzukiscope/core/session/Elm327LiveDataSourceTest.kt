@@ -39,7 +39,7 @@ class Elm327LiveDataSourceTest {
         assertEquals(40.0, source.poll(oilTemp))
     }
 
-    private fun canAdapter(requests: MutableList<String>) = LoopbackTransport { bytes ->
+    private fun canAdapter(requests: MutableList<String>, acceptsResponseCount: Boolean = true) = LoopbackTransport { bytes ->
         val cmd = bytes.decodeToString().trim()
         requests += cmd
         when (cmd) {
@@ -48,8 +48,29 @@ class Elm327LiveDataSourceTest {
             "0120" -> "41 20 00 00 20 00\r>"
             "010C0B33" -> "41 0C 1A F8 0B 64 33 54\r>"
             "2100" -> "61 00 2A\r>"
+            "21001" -> if (acceptsResponseCount) "61 00 2A\r>" else "?\r>"
             else -> "OK\r>"
         }.encodeToByteArray()
+    }
+
+    @Test
+    fun fallsBackToPlainRequestsWhenResponseCountDigitIsRejected() = runTest {
+        val requests = mutableListOf<String>()
+        val source = Elm327LiveDataSource(canAdapter(requests, acceptsResponseCount = false), Elm327Protocol.CAN_11BIT_500K)
+        source.connect()
+        val field = FieldDefinition(
+            id = "raw",
+            label = "raw",
+            unit = "",
+            request = RequestSpec(targetAddress = 0x7E0, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
+            decode = DecodeSpec(skipBytes = 2, byteLength = 1),
+        )
+        repeat(2) {
+            source.beginCycle(listOf(field))
+            assertEquals(42.0, source.poll(field))
+        }
+        assertEquals(1, requests.count { it == "21001" })
+        assertEquals(2, requests.count { it == "2100" })
     }
 
     private fun obdField(id: String, pids: List<Int>, decode: DecodeSpec, fallback: FieldFallback? = null) = FieldDefinition(

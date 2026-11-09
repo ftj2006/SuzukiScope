@@ -167,14 +167,20 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
             }
         }
         if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
+            Text(
+                "Engine ECU tools (engine running, live data paused while they run)",
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 4.dp),
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Look for smaller engine data tables (engine idling, about 30 s, live data paused)",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(1f),
-                )
                 TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
-                    Text("Probe ECU tables")
+                    Text("Probe tables")
+                }
+                TextButton(onClick = { coroutineScope.launch { viewModel.testFastTable() } }) {
+                    Text("Test fast table")
+                }
+                TextButton(onClick = { coroutineScope.launch { viewModel.saveEcuSnapshot() } }) {
+                    Text("Save snapshot")
                 }
             }
         }

@@ -19,9 +19,17 @@ class Elm327ClientTest {
 
     @Test
     fun parseHexBytesStripsCanLineLabels() {
-        val bytes = Elm327Client.parseHexBytes("0D2\r0:6100FF\r1:1234\r2:FFFFFFFFFFFFFFFF\rF:ABCD\r>")
+        val bytes = Elm327Client.parseHexBytes("00F\r0:6100FF\r1:1234\r2:FFFFFFFFFFFFFFFF\rF:ABCD\r>")
         assertEquals(listOf<Byte>(0x61, 0x00, 0xFF.toByte(), 0x12, 0x34) +
             List(8) { 0xFF.toByte() } + listOf<Byte>(0xAB.toByte(), 0xCD.toByte()), bytes.toList())
+    }
+
+    @Test
+    fun parseHexBytesRejectsTruncatedMultiFrameReply() {
+        val error = kotlin.test.assertFailsWith<IllegalArgumentException> {
+            Elm327Client.parseHexBytes("0D2\r0:6100FFFFFFFF\r")
+        }
+        kotlin.test.assertTrue(error.message!!.startsWith(Elm327Client.TRUNCATED_REPLY))
     }
 
     @Test

@@ -148,15 +148,20 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATST10")
     }
 
-    /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */
-    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500): ByteArray {
-        val hex = payload.joinToString("") { "%02X".format(it) }
+    /**
+     * Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup).
+     * [expectedResponses] (1-15) is appended as the ELM327 response-count digit, so the adapter
+     * returns as soon as that many replies arrive instead of waiting out ATST for more.
+     */
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, expectedResponses: Int? = null): ByteArray {
+        val hex = payload.joinToString("") { "%02X".format(it) } + (expectedResponses?.let { "%X".format(it) } ?: "")
         val response = sendCommand(hex, timeoutMs)
         return parseHexBytes(response)
     }
 
     companion object {
         private const val LATE_REPLY_WAIT_MS = 150L
+        const val TRUNCATED_REPLY = "Truncated reply"
 
         /** Strips echo of the command, the '>' prompt, whitespace, and "SEARCHING..."/error noise. */
         internal fun cleanResponse(raw: String): String =
@@ -180,9 +185,17 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
             val payload = if (canChunks.isNotEmpty()) canChunks.joinToString("") else response
             val hexOnly = payload.filter { it.isDigit() || it.uppercaseChar() in 'A'..'F' }
             require(hexOnly.length % 2 == 0) { "Odd number of hex digits in response: '$response'" }
-            return ByteArray(hexOnly.length / 2) { i ->
+            val bytes = ByteArray(hexOnly.length / 2) { i ->
                 hexOnly.substring(i * 2, i * 2 + 2).toInt(16).toByte()
             }
+            // Multi-frame replies start with their total length; fewer bytes means frames were lost.
+            if (canChunks.isNotEmpty()) {
+                Regex("^([0-9A-Fa-f]{3})\\s").find(response)?.let { header ->
+                    val declared = header.groupValues[1].toInt(16)
+                    require(bytes.size >= declared) { "$TRUNCATED_REPLY: ${bytes.size} of $declared bytes" }
+                }
+            }
+            return bytes
         }
     }
 }

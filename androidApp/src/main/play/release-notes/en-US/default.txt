@@ -1,4 +1,3 @@
-- Slow adapter replies are waited for instead of dropped, so fewer gauge freezes
-- Settings: "Probe ECU tables" looks for smaller engine data tables (results in the connection log)
-- Alarms stay silent on test data; test data no longer starts after disconnecting
-- Settings bar now shows a summary
+- Faster engine data: the adapter no longer waits after each reply (falls back automatically if unsupported)
+- Settings, engine ECU tools: "Test fast table" tries a small custom data table (results in the connection log)
+- "Save snapshot" stores all engine ECU tables in Documents/SuzukiScope for later comparison
