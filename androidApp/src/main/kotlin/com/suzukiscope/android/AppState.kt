@@ -430,7 +430,7 @@ object AppState {
     fun useSimulated() {
         reconnectFactory = null
         waitingForSsid = false
-        dashboardViewModel.useSource(SimulatedLiveDataSource())
+        dashboardViewModel.useSource(SimulatedLiveDataSource(), startPolling = true)
         _connectionStatus.value = "Simulated data"
         rememberLastConnection("simulated")
     }

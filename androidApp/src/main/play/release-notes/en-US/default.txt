@@ -1,4 +1,4 @@
-- Test build: Android Auto redraws twice as often; shorter adapter reply timeout for faster updates
-- Connection log adds Android Auto redraw timing (AA PERF)
-- Config: settings start collapsed; X button clears the search
-- Relative boost scale now -0.1 to 1.65 bar
+- Slow adapter replies are waited for instead of dropped, so fewer gauge freezes
+- Settings: "Probe ECU tables" looks for smaller engine data tables (results in the connection log)
+- Alarms stay silent on test data; test data no longer starts after disconnecting
+- Settings bar now shows a summary

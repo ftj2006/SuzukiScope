@@ -159,7 +159,8 @@ class DashboardViewModel(
         val inCritical = value >= threshold
         if (inCritical) {
             if (fieldsInCritical.add(id)) {
-                alertSink?.onCritical(registry.get(id)!!, value)
+                // Test data still flashes the screen but stays silent.
+                if (isUsingHardwareSource()) alertSink?.onCritical(registry.get(id)!!, value)
                 _criticalEvents.tryEmit(Unit)
             }
         } else {
@@ -305,7 +306,8 @@ class DashboardViewModel(
     suspend fun disconnectHardware() {
         persistCurrentConnectionLog()
         (source as? Elm327LiveDataSource)?.disconnect()
-        useSource(SimulatedLiveDataSource())
+        // Idle until the user connects again or picks Test Data; test data never starts by itself.
+        useSource(SimulatedLiveDataSource(), startPolling = false)
     }
 
     /** Closes the current adapter socket without switching to simulated data (used before reconnecting). */
@@ -327,8 +329,8 @@ class DashboardViewModel(
         }
     }
 
-    /** Swaps the live-data backend (e.g. simulated -> real ELM327 hardware) and restarts polling if running. */
-    fun useSource(newSource: LiveDataSource) {
+    /** Swaps the live-data backend (e.g. simulated -> real ELM327 hardware); [startPolling] null = keep polling if it was. */
+    fun useSource(newSource: LiveDataSource, startPolling: Boolean? = null) {
         val wasRunning = pollJob != null
         stop()
         (source as? Elm327LiveDataSource)?.stopKeepAlive()
@@ -341,7 +343,7 @@ class DashboardViewModel(
         fieldsInCritical.clear()
         fieldReadingAtMs.clear()
         lastReadingAtMs = currentTimeMillis()
-        if (wasRunning || newSource is Elm327LiveDataSource) start()
+        if (startPolling ?: (wasRunning || newSource is Elm327LiveDataSource)) start()
     }
 
     /** Makes a connection attempt's log exportable even if it never becomes the active source
@@ -510,6 +512,32 @@ class DashboardViewModel(
         val skipped = registry.fields.size - candidates.size
         _fieldProbeStatus.value = "Done: $withData with data, $noData with none" +
             (if (skipped > 0) " ($skipped skipped \u2014 need the other protocol connected)" else "")
+    }
+
+    /** Pauses polling and probes the engine ECU's data tables (see [Elm327LiveDataSource.probeLocalTables]). */
+    suspend fun probeEcuTables() {
+        val liveSource = source as? Elm327LiveDataSource
+        if (liveSource == null || liveSource.protocol != Elm327Protocol.CAN_11BIT_500K) {
+            _fieldProbeStatus.value = "Connect to the real adapter on CAN first"
+            return
+        }
+        val wasRunning = pollJob != null
+        stop()
+        try {
+            val summary = liveSource.probeLocalTables { index, total ->
+                // Keeps the auto-reconnect watchdog from treating the paused polling as a stall.
+                lastReadingAtMs = currentTimeMillis()
+                _fieldProbeStatus.value = "Probing ECU table $index/$total"
+            }
+            _fieldProbeStatus.value = "Table probe done: $summary. Export the connection log to share it."
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _fieldProbeStatus.value = "Table probe failed: ${e.message}"
+        } finally {
+            lastReadingAtMs = currentTimeMillis()
+            if (wasRunning && source === liveSource) start()
+        }
     }
 
     /** Re-syncs [fields] after external registry changes (e.g. loading persisted config from disk). */

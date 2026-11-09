@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -164,12 +166,36 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                 Text("Test all fields")
             }
         }
+        if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Look for smaller engine data tables (engine idling, about 30 s, live data paused)",
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
+                    Text("Probe ECU tables")
+                }
+            }
+        }
         fieldProbeStatus?.let {
             Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
         }
         }
-        TextButton(onClick = { settingsExpanded = !settingsExpanded }) {
-            Text(if (settingsExpanded) "Settings \u25BE" else "Settings \u25B8")
+        androidx.compose.material3.Card(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { settingsExpanded = !settingsExpanded },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                androidx.compose.material3.Icon(Icons.Outlined.Settings, contentDescription = null)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text("Settings", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                    Text(
+                        "${protocolName(vehicleProtocol)} \u00B7 ${autoLayout.rows.size} Android Auto rows \u00B7 Logs ${if (debugLogsEnabled) "on" else "off"}",
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    )
+                }
+                Text(if (settingsExpanded) "\u25BE" else "\u25B8", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            }
         }
         if (settingsExpanded) settings()
         OutlinedTextField(

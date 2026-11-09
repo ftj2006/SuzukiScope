@@ -60,7 +60,8 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         val raw = try {
             transport.readUntil('>'.code.toByte(), timeoutMs)
         } catch (e: Exception) {
-            if (isTimeout(e)) lateReplyPending = true else transportBroken = true
+            // A cancelled read (polling stopped) leaves the reply in flight, the link itself is fine.
+            if (isTimeout(e) || e is kotlinx.coroutines.CancellationException) lateReplyPending = true else transportBroken = true
             ioLog?.append(IoDirection.ERROR, "no response to '$cmd' within ${timeoutMs}ms: ${describeError(e)}")
             throw e
         }
@@ -143,8 +144,8 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATFCSH%03X".format(requestId))
         sendCommand("ATFCSD300000")
         sendCommand("ATFCSM1")
-        // 32 ms end-of-reply wait (ATST is in 4 ms units); was 64 ms.
-        sendCommand("ATST08")
+        // 64 ms end-of-reply wait; ATST08 (32 ms) gave no speed-up and more timeouts.
+        sendCommand("ATST10")
     }
 
     /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */

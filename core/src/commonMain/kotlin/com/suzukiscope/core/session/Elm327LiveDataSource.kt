@@ -243,7 +243,8 @@ class Elm327LiveDataSource(
         val cacheKey = "${field.request.targetAddress}:${field.request.isFunctionalAddress}:" +
             requestPayload.joinToString("") { "%02X".format(it) }
         val rawAnswer = (requestCache[cacheKey] ?: run {
-            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 500 else 1000) }
+            // The 210-byte 21 00 reply sometimes takes 500-800 ms; discarding it froze the gauges for longer.
+            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 800 else 1000) }
             requestCache[cacheKey] = result
             result
         }).getOrThrow()
@@ -255,6 +256,44 @@ class Elm327LiveDataSource(
         }
         val dataPayload = rawAnswer.copyOfRange(prefix, rawAnswer.size - suffix)
         return FieldCodec.decode(field.decode, dataPayload)
+    }
+
+    /**
+     * One-off probe of every engine ECU local data table (`21 00`-`21 FF`), logging each one's
+     * reply size and time, to look for a table smaller than `21 00` that could be polled faster.
+     * Returns a one-line summary. Only meaningful on CAN.
+     */
+    suspend fun probeLocalTables(onProgress: (index: Int, total: Int) -> Unit): String {
+        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Table probe needs a CAN connection" }
+        ensureCanHeader(ENGINE_ECU)
+        ioLog.append(IoDirection.RECEIVED, "TABLE PROBE start: ECU %03X, 21 00-21 FF".format(ENGINE_ECU))
+        val found = ArrayList<String>()
+        var refused = 0
+        var silent = 0
+        for (id in 0x00..0xFF) {
+            onProgress(id + 1, 256)
+            if (client.transportBroken) break
+            val start = currentTimeMillis()
+            val result = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500) }
+            val ms = currentTimeMillis() - start
+            val answer = result.getOrNull()
+            val line = when {
+                answer == null -> { silent++; "no reply (${result.exceptionOrNull()?.let(::describeError)})" }
+                answer.size >= 3 && answer[0] == 0x7F.toByte() -> { refused++; "refused, NRC %02X".format(answer[2].toInt() and 0xFF) }
+                answer.size >= 2 && answer[0] == 0x61.toByte() -> {
+                    val dataBytes = answer.size - 2
+                    found += "21%02X=%dB/%dms".format(id, dataBytes, ms)
+                    "OK $dataBytes data bytes: " + answer.joinToString("") { "%02X".format(it) }
+                }
+                else -> "unexpected: " + answer.joinToString("") { "%02X".format(it) }
+            }
+            ioLog.append(IoDirection.RECEIVED, "TABLE PROBE 21%02X %d ms: %s".format(id, ms, line))
+            delay(50)
+        }
+        val summary = "${found.size} table(s) answered, $refused refused, $silent no reply" +
+            if (found.isEmpty()) "" else ": " + found.joinToString(" ")
+        ioLog.append(IoDirection.RECEIVED, "TABLE PROBE done: $summary")
+        return summary
     }
 
     private suspend fun ensureHeader(field: FieldDefinition) {
