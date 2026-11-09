@@ -148,13 +148,9 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATST10")
     }
 
-    /**
-     * Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup).
-     * [expectedResponses] (1-15) is appended as the ELM327 response-count digit, so the adapter
-     * returns as soon as that many replies arrive instead of waiting out ATST for more.
-     */
-    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, expectedResponses: Int? = null): ByteArray {
-        val hex = payload.joinToString("") { "%02X".format(it) } + (expectedResponses?.let { "%X".format(it) } ?: "")
+    /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500): ByteArray {
+        val hex = payload.joinToString("") { "%02X".format(it) }
         val response = sendCommand(hex, timeoutMs)
         return parseHexBytes(response)
     }

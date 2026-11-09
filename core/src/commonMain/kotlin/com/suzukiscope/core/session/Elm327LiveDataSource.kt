@@ -65,9 +65,6 @@ class Elm327LiveDataSource(
     private var windowStartMs = 0L
     private var lastPlan: String? = null
 
-    // null = not tried yet; false once the adapter rejects or mishandles the response-count digit.
-    private var responseCountDigit: Boolean? = null
-
     override fun beginCycle(fields: List<FieldDefinition>) {
         requestCache.clear()
         obdValues.clear()
@@ -247,10 +244,7 @@ class Elm327LiveDataSource(
             requestPayload.joinToString("") { "%02X".format(it) }
         val rawAnswer = (requestCache[cacheKey] ?: run {
             // The 210-byte 21 00 reply sometimes takes 500-800 ms; discarding it froze the gauges for longer.
-            val result = runCatching {
-                if (protocol == Elm327Protocol.CAN_11BIT_500K) timedRequest(requestPayload, 800, singleResponse = true)
-                else timedRequest(requestPayload, 1000)
-            }
+            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 800 else 1000) }
             requestCache[cacheKey] = result
             result
         }).getOrThrow()
@@ -330,12 +324,12 @@ class Elm327LiveDataSource(
         lastHeader = header
     }
 
-    private suspend fun timedRequest(payload: ByteArray, timeoutMs: Long, singleResponse: Boolean = false): ByteArray {
+    private suspend fun timedRequest(payload: ByteArray, timeoutMs: Long): ByteArray {
         val key = payload.joinToString("") { "%02X".format(it) }
         val stats = requestStats.getOrPut(key) { RequestStats() }
         val start = currentTimeMillis()
         try {
-            return if (singleResponse) requestSingle(payload, timeoutMs) else client.requestHex(payload, timeoutMs)
+            return client.requestHex(payload, timeoutMs)
         } catch (e: Exception) {
             stats.failures++
             throw e
@@ -347,55 +341,37 @@ class Elm327LiveDataSource(
         }
     }
 
-    /** Asks for exactly one reply (response-count digit) so the adapter skips its ATST end-of-reply wait. */
-    private suspend fun requestSingle(payload: ByteArray, timeoutMs: Long): ByteArray {
-        if (responseCountDigit == false) return client.requestHex(payload, timeoutMs)
-        try {
-            val answer = client.requestHex(payload, timeoutMs, expectedResponses = 1)
-            if (responseCountDigit == null) {
-                responseCountDigit = true
-                ioLog.append(IoDirection.RECEIVED, "adapter accepts the response-count digit; end-of-reply wait skipped")
-            }
-            return answer
-        } catch (e: Exception) {
-            val message = e.message.orEmpty()
-            val digitProblem = message.endsWith("rejected request: ?") || message.startsWith(Elm327Client.TRUNCATED_REPLY)
-            if (responseCountDigit != null || !digitProblem) throw e
-            responseCountDigit = false
-            ioLog.append(IoDirection.ERROR, "response-count digit not usable ($message); using plain requests")
-            return client.requestHex(payload, timeoutMs)
-        }
-    }
-
     /**
      * Experimental: asks the ECU (KWP2000 service 2C) to build a one-frame table holding RPM,
      * throttle, speed and manifold pressure taken from `21 00`, then reads it next to `21 00` to
-     * check the values agree. The definition is cleared again afterwards. Returns a summary.
+     * check the values agree. If the default session refuses, extended (never programming)
+     * sessions are tried. The definition and session are reset afterwards. Returns a summary.
      */
     suspend fun testFastTable(onProgress: (String) -> Unit): String {
         check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Fast table test needs a CAN connection" }
         ensureCanHeader(ENGINE_ECU)
-        val count = if (responseCountDigit == true) 1 else null
-        ioLog.append(IoDirection.RECEIVED, "FAST TABLE test start: dynamic id %02X, response-count digit %s".format(FAST_TABLE_ID, if (count != null) "on" else "off"))
-        runCatching { client.requestHex(byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x04), 1000) }
-        var position = 1
-        for (entry in FAST_TABLE_ENTRIES) {
-            onProgress("Defining fast table: ${entry.name}")
-            // 2C <id> 01 (define by local id) <position in new table> <size> <source local id 00> <1-based position in 21 00 record>
-            val define = byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x01, position.toByte(), entry.size.toByte(), 0x00, (entry.recordOffset + 1).toByte())
-            val result = runCatching { client.requestHex(define, 1000) }
-            val reply = result.getOrNull()
-            if (reply == null || reply.firstOrNull() != 0x6C.toByte()) {
-                val why = when {
-                    reply == null -> describeError(result.exceptionOrNull()!!)
-                    reply.size >= 3 && reply[0] == 0x7F.toByte() -> "refused, NRC %02X".format(reply[2].toInt() and 0xFF)
-                    else -> "unexpected reply " + reply.toHex()
+        ioLog.append(IoDirection.RECEIVED, "FAST TABLE test start: dynamic id %02X".format(FAST_TABLE_ID))
+        var why = defineFastTable("default session", onProgress)
+        var exitSession: ByteArray? = null
+        if (why != null) {
+            for (session in DIAGNOSTIC_SESSIONS) {
+                onProgress("Trying ${session.name}")
+                val result = runCatching { client.requestHex(session.enter, 1000) }
+                val reply = result.getOrNull()
+                if (reply?.firstOrNull() != 0x50.toByte()) {
+                    ioLog.append(IoDirection.ERROR, "FAST TABLE ${session.name} (${session.enter.toHex()}) not entered: ${describeReply(result)}")
+                    continue
                 }
-                ioLog.append(IoDirection.ERROR, "FAST TABLE define '${entry.name}' failed: $why")
-                return "ECU would not define the fast table (${entry.name}: $why)"
+                ioLog.append(IoDirection.RECEIVED, "FAST TABLE entered ${session.name}: ${reply.toHex()}")
+                why = defineFastTable(session.name, onProgress)
+                if (why == null) {
+                    exitSession = session.exit
+                    break
+                }
+                runCatching { client.requestHex(session.exit, 1000) }
             }
-            position += entry.size
         }
+        if (why != null) return "ECU would not define the fast table in any session (last: $why)"
         var fastMs = 0L
         var fullMs = 0L
         var matches = 0
@@ -405,10 +381,10 @@ class Elm327LiveDataSource(
             for (i in 1..reads) {
                 onProgress("Reading fast table $i/$reads")
                 var start = currentTimeMillis()
-                val fast = client.requestHex(byteArrayOf(0x21, FAST_TABLE_ID.toByte()), 1000, count)
+                val fast = client.requestHex(byteArrayOf(0x21, FAST_TABLE_ID.toByte()), 1000)
                 fastMs += currentTimeMillis() - start
                 start = currentTimeMillis()
-                val full = client.requestHex(byteArrayOf(0x21, 0x00), 1000, count)
+                val full = client.requestHex(byteArrayOf(0x21, 0x00), 1000)
                 fullMs += currentTimeMillis() - start
                 val fastValues = decodeFastTable(fast.drop(2), sequential = true)
                 val fullValues = decodeFastTable(full.drop(2))
@@ -425,11 +401,38 @@ class Elm327LiveDataSource(
             }
         } finally {
             runCatching { client.requestHex(byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x04), 1000) }
+            exitSession?.let { runCatching { client.requestHex(it, 1000) } }
         }
         val summary = "fast table avg ${fastMs / reads} ms vs 21 00 avg ${fullMs / reads} ms; " +
             "values match in $matches/$reads reads (one byte later: $shiftedMatches/$reads)"
         ioLog.append(IoDirection.RECEIVED, "FAST TABLE done: $summary")
         return summary
+    }
+
+    // Returns null once every entry is defined, otherwise why the ECU refused.
+    private suspend fun defineFastTable(sessionName: String, onProgress: (String) -> Unit): String? {
+        runCatching { client.requestHex(byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x04), 1000) }
+        var position = 1
+        for (entry in FAST_TABLE_ENTRIES) {
+            onProgress("Defining fast table ($sessionName): ${entry.name}")
+            // 2C <id> 01 (define by local id) <position in new table> <size> <source local id 00> <1-based position in 21 00 record>
+            val define = byteArrayOf(0x2C, FAST_TABLE_ID.toByte(), 0x01, position.toByte(), entry.size.toByte(), 0x00, (entry.recordOffset + 1).toByte())
+            val result = runCatching { client.requestHex(define, 1000) }
+            if (result.getOrNull()?.firstOrNull() != 0x6C.toByte()) {
+                val why = "${entry.name} in $sessionName: ${describeReply(result)}"
+                ioLog.append(IoDirection.ERROR, "FAST TABLE define failed: $why")
+                return why
+            }
+            position += entry.size
+        }
+        ioLog.append(IoDirection.RECEIVED, "FAST TABLE defined in $sessionName")
+        return null
+    }
+
+    private fun describeReply(result: Result<ByteArray>): String {
+        val reply = result.getOrNull() ?: return describeError(result.exceptionOrNull()!!)
+        return if (reply.size >= 3 && reply[0] == 0x7F.toByte()) "refused, NRC %02X".format(reply[2].toInt() and 0xFF)
+        else "reply " + reply.toHex()
     }
 
     // sequential = fields packed back to back (the fast table); otherwise each at its 21 00 offset plus [shift].
@@ -524,6 +527,15 @@ class Elm327LiveDataSource(
             FastTableEntry("throttle", 1, 64, 0.39215686274509803, 5.0),
             FastTableEntry("speed", 1, 40, 1.0, 3.0),
             FastTableEntry("map", 1, 147, 1.0, 5.0),
+        )
+
+        private class DiagnosticSession(val name: String, val enter: ByteArray, val exit: ByteArray)
+
+        // Extended sessions only; programming sessions (10 02 / 10 85) are deliberately never used.
+        private val DIAGNOSTIC_SESSIONS = listOf(
+            DiagnosticSession("UDS extended session", byteArrayOf(0x10, 0x03), byteArrayOf(0x10, 0x01)),
+            DiagnosticSession("KWP session C0", byteArrayOf(0x10, 0xC0.toByte()), byteArrayOf(0x10, 0x81.toByte())),
+            DiagnosticSession("KWP session 89", byteArrayOf(0x10, 0x89.toByte()), byteArrayOf(0x10, 0x81.toByte())),
         )
 
         // Tables the engine ECU answered in the 21 00-21 FF probe.

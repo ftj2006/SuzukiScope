@@ -1,3 +1,2 @@
-- Faster engine data: the adapter no longer waits after each reply (falls back automatically if unsupported)
-- Settings, engine ECU tools: "Test fast table" tries a small custom data table (results in the connection log)
-- "Save snapshot" stores all engine ECU tables in Documents/SuzukiScope for later comparison
+- Removed the adapter reply-count shortcut: this adapter counts frames, which garbled the first reading after connecting
+- "Test fast table" now also tries the ECU's extended diagnostic sessions (results in the connection log)
