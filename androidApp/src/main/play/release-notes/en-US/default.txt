@@ -1,5 +1,5 @@
-- Replies left over from an earlier request are now recognised and skipped, so fewer bad or stale readings
-- Shorter gap between requests (20 ms) for fresher data
-- Android Auto: small jitter is smoothed, real changes still show immediately
-- ECU snapshot now labels the start counter, odometer and stored fault codes
-- Removed the fast table test (the ECU doesn't support it)
+First alpha.
+- Gauges stay green unless a warning or critical limit is set
+- Snappier phone gauge needles
+- Connection logs and the test data option are now off by default (Settings > Diagnostics)
+- Diagnostics tools grouped in one collapsible section

@@ -55,10 +55,10 @@ internal fun centredSlots(count: Int, columns: Int): List<Int?> {
 }
 
 /**
- * Android Auto dashboard: a 3-per-row grid of gauges mirroring whichever fields are
- * enabled/ordered on the phone (configuration itself only happens in the phone app's Config
- * tab — this screen just shows the result), plus Connect and Start/Stop logging controls in
- * the ActionStrip, backed by the same app-wide AppState the phone Activity uses.
+ * Android Auto dashboard: rows of gauges laid out from the Config tab's Android Auto rows,
+ * mirroring whichever fields are enabled on the phone (configuration only happens on the phone;
+ * this screen just shows the result), plus floating Connect and Record buttons, backed by the
+ * same app-wide AppState the phone Activity uses.
  */
 class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
 

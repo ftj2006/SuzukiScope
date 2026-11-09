@@ -7,6 +7,7 @@ class SuzukiScopeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AutoCrashLog.init(this)
+        AppState.initDebugLogs(File(filesDir, "debug-logs.txt"), File(filesDir, "test-data-option.txt"))
         AutoCrashLog.append("Application started")
         // Runs here (not just MainActivity.onCreate) because Android Auto can launch this
         // process directly, without the phone Activity ever starting — field selection/Wi-Fi

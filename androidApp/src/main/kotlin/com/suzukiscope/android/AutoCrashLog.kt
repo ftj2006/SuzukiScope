@@ -8,7 +8,7 @@ import java.time.Instant
 
 object AutoCrashLog {
     private var context: Context? = null
-    private var enabled = true
+    private var enabled = false
     private var file: File? = null
 
     fun init(context: Context) {

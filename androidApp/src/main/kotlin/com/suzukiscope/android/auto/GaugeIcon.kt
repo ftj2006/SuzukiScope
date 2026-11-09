@@ -52,7 +52,7 @@ object GaugeIcon {
         canvas.drawArc(rect, START_ANGLE, SWEEP_ANGLE, false, trackPaint)
 
         val fraction = ((value - min) / (max - min)).coerceIn(0.0, 1.0)
-        val color = if (stale) STALE_COLOR else colorFor(fraction, value, warningThreshold, criticalThreshold)
+        val color = if (stale) STALE_COLOR else colorFor(value, warningThreshold, criticalThreshold)
         val valuePaint = Paint(trackPaint).apply { this.color = color }
         canvas.drawArc(rect, START_ANGLE, (SWEEP_ANGLE * fraction).toFloat(), false, valuePaint)
 
@@ -230,14 +230,10 @@ object GaugeIcon {
         else -> "%.1f".format(v)
     }
 
-    private fun colorFor(fraction: Double, value: Double, warningThreshold: Double?, criticalThreshold: Double?): Int = when {
+    // Without thresholds the gauge stays green so orange/red always mean a set limit.
+    private fun colorFor(value: Double, warningThreshold: Double?, criticalThreshold: Double?): Int = when {
         criticalThreshold != null && value >= criticalThreshold -> Color.rgb(0xE5, 0x39, 0x35)
         warningThreshold != null && value >= warningThreshold -> Color.rgb(0xFF, 0xB3, 0x00)
-        warningThreshold != null || criticalThreshold != null -> Color.rgb(0x43, 0xA0, 0x47)
-        else -> when {
-            fraction > 0.85 -> Color.rgb(0xE5, 0x39, 0x35)
-            fraction > 0.65 -> Color.rgb(0xFF, 0xB3, 0x00)
-            else -> Color.rgb(0x43, 0xA0, 0x47)
-        }
+        else -> Color.rgb(0x43, 0xA0, 0x47)
     }
 }

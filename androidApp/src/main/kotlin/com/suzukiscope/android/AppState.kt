@@ -101,8 +101,6 @@ object AppState {
         appContext = context.applicationContext
         dashboardViewModel.alertSink = AndroidCriticalAlertSink(context)
         AutoCrashLog.init(context)
-        AutoCrashLog.setEnabled(dashboardViewModel.debugLogsEnabled.value)
-        dashboardViewModel.debugLogsSettingSink = AutoCrashLog::setEnabled
         val appCtx = context.applicationContext
         // Set here rather than in MainActivity so recordings started from Android Auto are saved too.
         dashboardViewModel.setExportSink { files ->
@@ -177,6 +175,19 @@ object AppState {
             dashboardViewModel.resetLearnedRange(default.id)
         }
         runCatching { marker.parentFile?.mkdirs(); marker.writeText("done") }
+    }
+
+    /** Loads the debug-logs and test-data settings (off unless the user turned them on) and saves every change. */
+    fun initDebugLogs(file: File, testDataFile: File) {
+        dashboardViewModel.debugLogsSettingSink = { enabled ->
+            AutoCrashLog.setEnabled(enabled)
+            runCatching { file.parentFile?.mkdirs(); file.writeText(enabled.toString()) }
+        }
+        dashboardViewModel.setDebugLogsEnabled(runCatching { file.readText().trim().toBoolean() }.getOrDefault(false))
+        dashboardViewModel.setTestDataEnabled(runCatching { testDataFile.readText().trim().toBoolean() }.getOrDefault(false))
+        dashboardViewModel.testDataSettingSink = { enabled ->
+            runCatching { testDataFile.parentFile?.mkdirs(); testDataFile.writeText(enabled.toString()) }
+        }
     }
 
     /** Restores the chosen vehicle bus (or infers it from the enabled fields) and drops any other-bus fields. */

@@ -68,6 +68,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     val vehicleProtocol by viewModel.vehicleProtocol.collectAsState()
     val autoLayout by viewModel.autoLayout.collectAsState()
     var settingsExpanded by remember { mutableStateOf(false) }
+    var diagnosticsExpanded by remember { mutableStateOf(false) }
     var protocolMenuOpen by remember { mutableStateOf(false) }
     var pendingProtocol by remember { mutableStateOf<Elm327Protocol?>(null) }
     val busFields = fields.filter { it.busProtocol == vehicleProtocol }
@@ -98,20 +99,6 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     Column(modifier.fillMaxSize().padding(12.dp)) {
         // Rarely changed settings live in a collapsible section so the field list gets most of the screen.
         val settings: @Composable () -> Unit = {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Debug", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
-            Checkbox(checked = debugLogsEnabled, onCheckedChange = { viewModel.setDebugLogsEnabled(it) })
-            Text("Logs", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
-            Checkbox(checked = testDataEnabled, onCheckedChange = { viewModel.setTestDataEnabled(it) })
-            Text("Test", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
-            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-            IconButton(onClick = { debugLogOpen = true }, enabled = debugLogsEnabled) {
-                androidx.compose.material3.Icon(Icons.Outlined.BugReport, contentDescription = "View connection logs")
-            }
-        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text("Protocol", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
             androidx.compose.foundation.layout.Box {
@@ -160,24 +147,50 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
             Text(
                 "Show $noDataCount field(s) with no data",
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { coroutineScope.launch { viewModel.probeAllFieldsForData() } }) {
-                Text("Test all fields")
-            }
         }
-        if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
-            Text(
-                "Engine ECU tools (engine running, live data paused while they run)",
-                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
-                    Text("Probe tables")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clickable { diagnosticsExpanded = !diagnosticsExpanded },
+        ) {
+            Text("Diagnostics", style = androidx.compose.material3.MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text(if (diagnosticsExpanded) "\u25BE" else "\u25B8", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        }
+        if (diagnosticsExpanded) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Checkbox(checked = debugLogsEnabled, onCheckedChange = { viewModel.setDebugLogsEnabled(it) })
+                Text("Save connection logs", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                IconButton(onClick = { debugLogOpen = true }, enabled = debugLogsEnabled) {
+                    androidx.compose.material3.Icon(Icons.Outlined.BugReport, contentDescription = "View connection logs")
                 }
-                TextButton(onClick = { coroutineScope.launch { viewModel.saveEcuSnapshot() } }) {
-                    Text("Save snapshot")
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = testDataEnabled, onCheckedChange = { viewModel.setTestDataEnabled(it) })
+                Text("Show test data option", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Check which fields return data on this car",
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { coroutineScope.launch { viewModel.probeAllFieldsForData() } }) {
+                    Text("Test all fields")
+                }
+            }
+            if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
+                Text(
+                    "Engine ECU tools (engine running, live data paused while they run)",
+                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
+                        Text("Probe tables")
+                    }
+                    TextButton(onClick = { coroutineScope.launch { viewModel.saveEcuSnapshot() } }) {
+                        Text("Save snapshot")
+                    }
                 }
             }
         }

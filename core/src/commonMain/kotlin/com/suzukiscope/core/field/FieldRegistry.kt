@@ -122,7 +122,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     }
 
     companion object {
-        // Suzuki engine block (mode 0x21, local id 0x00): ~150 bytes, so it is slow on cheap adapters.
+        // Suzuki engine block (mode 0x21, local id 0x00): 210 bytes in 31 CAN frames, about 200 ms per read.
         private val SUZUKI_ENGINE_00 = RequestSpec(targetAddress = 2016, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0)
 
         // Standard OBD-II PIDs: a few bytes each, batched into one request per cycle for the fast gauges.

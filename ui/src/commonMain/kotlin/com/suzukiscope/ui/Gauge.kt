@@ -49,10 +49,10 @@ fun Gauge(
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // A critically damped spring follows rapid new readings smoothly; a restarted tween kept
-        // re-entering its slow ease-in and barely moved.
+        // re-entering its slow ease-in and barely moved. 4x StiffnessHigh settles in ~25 ms (was ~50).
         val shownValue by animateFloatAsState(
             value.toFloat(),
-            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessHigh),
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 4 * Spring.StiffnessHigh),
             label = "gaugeValue",
         )
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
@@ -75,7 +75,7 @@ fun Gauge(
 
                 val fraction = ((shownValue - min) / (max - min)).coerceIn(0.0, 1.0)
                 drawArc(
-                    color = if (stale) STALE_COLOR else gaugeColor(fraction, value, warningThreshold, criticalThreshold),
+                    color = if (stale) STALE_COLOR else gaugeColor(value, warningThreshold, criticalThreshold),
                     startAngle = START_ANGLE,
                     sweepAngle = (SWEEP_ANGLE * fraction).toFloat(),
                     useCenter = false,
@@ -139,16 +139,11 @@ fun Gauge(
     }
 }
 
-/** Colours by warning/critical thresholds when set, else falls back to the min..max fraction. */
-private fun gaugeColor(fraction: Double, value: Double, warningThreshold: Double?, criticalThreshold: Double?): Color = when {
+/** Colours by warning/critical thresholds; without any, the gauge stays green so orange/red always mean a set limit. */
+private fun gaugeColor(value: Double, warningThreshold: Double?, criticalThreshold: Double?): Color = when {
     criticalThreshold != null && value >= criticalThreshold -> Color(0xFFE53935)
     warningThreshold != null && value >= warningThreshold -> Color(0xFFFFB300)
-    warningThreshold != null || criticalThreshold != null -> Color(0xFF43A047)
-    else -> when {
-        fraction > 0.85 -> Color(0xFFE53935)
-        fraction > 0.65 -> Color(0xFFFFB300)
-        else -> Color(0xFF43A047)
-    }
+    else -> Color(0xFF43A047)
 }
 
 private fun formatValue(v: Double, decimals: Int?): String = when {

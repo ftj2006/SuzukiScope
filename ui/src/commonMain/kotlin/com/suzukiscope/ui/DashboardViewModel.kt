@@ -68,11 +68,12 @@ class DashboardViewModel(
     val sessionId: StateFlow<String?> = _sessionId.asStateFlow()
     private val _completedRuns = MutableStateFlow<List<LoggingRun>>(emptyList())
     val completedRuns: StateFlow<List<LoggingRun>> = _completedRuns.asStateFlow()
-    private val _debugLogsEnabled = MutableStateFlow(true)
+    private val _debugLogsEnabled = MutableStateFlow(false)
     val debugLogsEnabled: StateFlow<Boolean> = _debugLogsEnabled.asStateFlow()
     var debugLogsSettingSink: ((Boolean) -> Unit)? = null
-    private val _testDataEnabled = MutableStateFlow(true)
+    private val _testDataEnabled = MutableStateFlow(false)
     val testDataEnabled: StateFlow<Boolean> = _testDataEnabled.asStateFlow()
+    var testDataSettingSink: ((Boolean) -> Unit)? = null
 
     /** The car's diagnostic bus; only fields for this bus can be enabled, and connecting uses it. */
     private val _vehicleProtocol = MutableStateFlow(Elm327Protocol.CAN_11BIT_500K)
@@ -409,7 +410,10 @@ class DashboardViewModel(
             connectionLogs.clear()
         }
     }
-    fun setTestDataEnabled(enabled: Boolean) { _testDataEnabled.value = enabled }
+    fun setTestDataEnabled(enabled: Boolean) {
+        _testDataEnabled.value = enabled
+        testDataSettingSink?.invoke(enabled)
+    }
 
     /** Switches the vehicle bus and disables any enabled fields that belong to the other one. */
     fun setVehicleProtocol(protocol: Elm327Protocol) {
