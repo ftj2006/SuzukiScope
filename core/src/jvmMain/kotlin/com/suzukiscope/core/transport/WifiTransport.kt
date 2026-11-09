@@ -68,6 +68,8 @@ class WifiTransport(
     }
 
     override val isConnected: Boolean get() = socket?.isConnected == true
+    // Even an AT command round trip to the adapter takes ~30 ms.
+    override val minReplyMs: Long = 10
 
     companion object {
         const val DEFAULT_HOST = "192.168.0.10"

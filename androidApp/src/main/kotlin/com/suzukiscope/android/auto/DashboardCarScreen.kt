@@ -29,6 +29,8 @@ import kotlinx.coroutines.launch
 
 private const val REFRESH_MS = 150L
 private const val PERF_WINDOW_MS = 10_000L
+private const val JITTER_FRACTION = 0.02
+private const val JITTER_BLEND = 0.5
 
 // Tiles per row the host uses for ITEM_SIZE_LARGE on the tested head unit; it isn't queryable.
 private const val HOST_COLUMNS = 5
@@ -181,7 +183,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                     GaugeIcon.render(
                         field.label,
                         field.unit,
-                        values[field.id] ?: field.gaugeMin,
+                        shownValue(field, values[field.id]),
                         field.gaugeMin,
                         field.gaugeMax,
                         peaks[field.id],
@@ -274,6 +276,21 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     private fun blankItem(): GridItem = GridItem.Builder().setImage(GaugeIcon.blankIcon(), GridItem.IMAGE_TYPE_LARGE).build()
+
+    private val shownValues = HashMap<String, Double>()
+
+    // Adaptive smoothing: jitter within a small band is averaged, larger moves are shown at once so real inputs don't lag.
+    private fun shownValue(field: com.suzukiscope.core.field.FieldDefinition, raw: Double?): Double {
+        if (raw == null) {
+            shownValues.remove(field.id)
+            return field.gaugeMin
+        }
+        val previous = shownValues[field.id]
+        val band = (field.gaugeMax - field.gaugeMin) * JITTER_FRACTION
+        val shown = if (previous == null || kotlin.math.abs(raw - previous) > band) raw else previous + (raw - previous) * JITTER_BLEND
+        shownValues[field.id] = shown
+        return shown
+    }
 
     /** With no header there's no status text, so the connect button's colour carries the state. */
     private fun connectionColor(status: String, isConnected: Boolean): CarColor = when {

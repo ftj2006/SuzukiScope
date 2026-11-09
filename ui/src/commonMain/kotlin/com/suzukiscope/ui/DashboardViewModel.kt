@@ -91,11 +91,12 @@ class DashboardViewModel(
     private var pollJob: Job? = null
     private var session = newSession()
 
-    // Back-to-back requests with no gap overwhelmed the adapter's Wi-Fi until it dropped the link.
+    // Back-to-back requests with no gap overwhelmed the adapter's Wi-Fi until it dropped the link;
+    // 20 ms (was 50) is under trial for lower latency.
     private fun newSession() = LiveDataSession(
         source,
         fieldsProvider = { _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) } },
-        intervalMs = if (source is Elm327LiveDataSource) 50 else 40,
+        intervalMs = if (source is Elm327LiveDataSource) 20 else 40,
     )
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
     private var currentIoLogId: String? = null
@@ -518,11 +519,6 @@ class DashboardViewModel(
     suspend fun probeEcuTables() = withPollingPaused("Table probe") { liveSource, progress ->
         val summary = liveSource.probeLocalTables { index, total -> progress("Probing ECU table $index/$total") }
         "Table probe done: $summary. Export the connection log to share it."
-    }
-
-    /** Pauses polling and tries the experimental one-frame fast table (see [Elm327LiveDataSource.testFastTable]). */
-    suspend fun testFastTable() = withPollingPaused("Fast table test") { liveSource, progress ->
-        "Fast table test: ${liveSource.testFastTable(progress)}. Export the connection log to share it."
     }
 
     /** Pauses polling, reads every known engine table and saves them to a dated file. */

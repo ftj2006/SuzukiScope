@@ -3,6 +3,7 @@ package com.suzukiscope.core.elm327
 import com.suzukiscope.core.log.Elm327IoLog
 import com.suzukiscope.core.log.IoDirection
 import com.suzukiscope.core.log.describeError
+import com.suzukiscope.core.session.currentTimeMillis
 import com.suzukiscope.core.transport.Transport
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -57,6 +58,13 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
             ioLog?.append(IoDirection.ERROR, "write failed for '$cmd': ${describeError(e)}")
             throw e
         }
+        readReply(cmd, timeoutMs)
+    }
+
+    /** Waits for another reply without sending anything, after the previous one turned out to be stale. */
+    private suspend fun awaitNextReply(cmd: String, timeoutMs: Long): String = mutex.withLock { readReply(cmd, timeoutMs) }
+
+    private suspend fun readReply(cmd: String, timeoutMs: Long): String {
         val raw = try {
             transport.readUntil('>'.code.toByte(), timeoutMs)
         } catch (e: Exception) {
@@ -69,7 +77,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         // Transports that return a partial read on timeout instead of throwing.
         if (!rawText.endsWith('>')) lateReplyPending = true
         ioLog?.append(IoDirection.RECEIVED, rawText.replace("\r", "\\r").replace("\n", "\\n"))
-        cleanResponse(rawText)
+        return cleanResponse(rawText)
     }
 
     private fun isTimeout(e: Throwable): Boolean =
@@ -148,15 +156,49 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATST10")
     }
 
-    /** Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup). */
-    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500): ByteArray {
+    /**
+     * Sends a hex payload (mode + params) and returns the raw hex bytes of the answer (post-cleanup).
+     * With [checkReply] (CAN only: replies carry no header), a reply that belongs to an earlier
+     * request (wrong service/id, cut short, empty, or already buffered) is discarded and the
+     * adapter is read again until the matching reply arrives or [timeoutMs] runs out.
+     */
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, checkReply: Boolean = false): ByteArray {
         val hex = payload.joinToString("") { "%02X".format(it) }
-        val response = sendCommand(hex, timeoutMs)
-        return parseHexBytes(response)
+        val start = currentTimeMillis()
+        var response = sendCommand(hex, timeoutMs)
+        if (!checkReply) return parseHexBytes(response)
+        var alreadyBuffered = currentTimeMillis() - start < transport.minReplyMs
+        repeat(MAX_STALE_REPLIES) {
+            val parsed = runCatching { parseHexBytes(response) }
+            val bytes = parsed.getOrNull()
+            val truncated = parsed.exceptionOrNull()?.message.orEmpty().startsWith(TRUNCATED_REPLY)
+            val stale = alreadyBuffered || truncated || (bytes != null && !answers(payload, bytes))
+            if (!stale) return parsed.getOrThrow()
+            val remaining = timeoutMs - (currentTimeMillis() - start)
+            ioLog?.append(IoDirection.ERROR, "discarded reply that does not answer '$hex'; waiting ${remaining.coerceAtLeast(0)} ms for the right one")
+            if (remaining <= 0) throw IllegalStateException("no matching reply to '$hex'")
+            response = awaitNextReply(hex, remaining)
+            alreadyBuffered = false
+        }
+        throw IllegalStateException("no matching reply to '$hex' after $MAX_STALE_REPLIES stale replies")
+    }
+
+    // Positive replies echo the service (+0x40) and, for these services, the first parameter.
+    private fun answers(payload: ByteArray, reply: ByteArray): Boolean {
+        if (reply.isEmpty() || payload.isEmpty()) return false
+        val service = payload[0].toInt() and 0xFF
+        val first = reply[0].toInt() and 0xFF
+        if (first == 0x7F) return reply.size >= 2 && (reply[1].toInt() and 0xFF) == service
+        if (first != service + 0x40) return false
+        if (service in ECHOING_SERVICES && payload.size >= 2) return reply.size >= 2 && reply[1] == payload[1]
+        return true
     }
 
     companion object {
         private const val LATE_REPLY_WAIT_MS = 150L
+        private const val MAX_STALE_REPLIES = 4
+        // Mode 01 (PID), 10 (session), 21 (local id), 2C (dynamic id) echo their first parameter.
+        private val ECHOING_SERVICES = setOf(0x01, 0x10, 0x21, 0x2C)
         const val TRUNCATED_REPLY = "Truncated reply"
 
         /** Strips echo of the command, the '>' prompt, whitespace, and "SEARCHING..."/error noise. */

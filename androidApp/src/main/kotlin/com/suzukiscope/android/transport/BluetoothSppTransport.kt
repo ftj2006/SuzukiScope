@@ -57,6 +57,7 @@ class BluetoothSppTransport(
     }
 
     override val isConnected: Boolean get() = socket?.isConnected == true
+    override val minReplyMs: Long = 10
 
     companion object {
         /** Standard Serial Port Profile UUID, same constant used by the original app. */

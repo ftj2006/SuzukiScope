@@ -48,4 +48,23 @@ class Elm327ClientTest {
         val response = client.sendCommand("2115")
         assertEquals("80 10 F1 61 15 50 B7", response)
     }
+
+    @Test
+    fun requestHexSkipsAStaleReplyFromAnEarlierRequest() = kotlinx.coroutines.test.runTest {
+        val pending = ArrayDeque<String>()
+        val transport = object : com.suzukiscope.core.transport.Transport {
+            override val name = "queue"
+            override val isConnected = true
+            override suspend fun connect() {}
+            override suspend fun disconnect() {}
+            override suspend fun write(bytes: ByteArray) {
+                // The previous request's late reply is still in the buffer ahead of the real one.
+                if (bytes.decodeToString().trim() == "2134") pending += listOf("6127AABB\r>", "613418F1\r>")
+            }
+            override suspend fun readUntil(terminator: Byte, timeoutMs: Long) = pending.removeFirst().encodeToByteArray()
+        }
+        val client = Elm327Client(transport)
+        val reply = client.requestHex(byteArrayOf(0x21, 0x34), 1000, checkReply = true)
+        assertEquals(listOf<Byte>(0x61, 0x34, 0x18, 0xF1.toByte()), reply.toList())
+    }
 }

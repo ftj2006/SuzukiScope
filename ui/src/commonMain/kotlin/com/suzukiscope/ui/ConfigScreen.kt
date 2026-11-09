@@ -176,9 +176,6 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                 TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
                     Text("Probe tables")
                 }
-                TextButton(onClick = { coroutineScope.launch { viewModel.testFastTable() } }) {
-                    Text("Test fast table")
-                }
                 TextButton(onClick = { coroutineScope.launch { viewModel.saveEcuSnapshot() } }) {
                     Text("Save snapshot")
                 }

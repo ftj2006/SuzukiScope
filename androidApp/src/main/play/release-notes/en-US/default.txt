@@ -1,2 +1,5 @@
-- Removed the adapter reply-count shortcut: this adapter counts frames, which garbled the first reading after connecting
-- "Test fast table" now also tries the ECU's extended diagnostic sessions (results in the connection log)
+- Replies left over from an earlier request are now recognised and skipped, so fewer bad or stale readings
+- Shorter gap between requests (20 ms) for fresher data
+- Android Auto: small jitter is smoothed, real changes still show immediately
+- ECU snapshot now labels the start counter, odometer and stored fault codes
+- Removed the fast table test (the ECU doesn't support it)

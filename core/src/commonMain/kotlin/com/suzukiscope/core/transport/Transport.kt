@@ -12,6 +12,8 @@ interface Transport {
     /** Reads until [terminator] is seen (e.g. ELM327 '>' prompt) or the transport times out. */
     suspend fun readUntil(terminator: Byte, timeoutMs: Long = 2000): ByteArray
     val isConnected: Boolean
+    /** A reply arriving faster than this was already buffered, so it can't answer the request just sent. */
+    val minReplyMs: Long get() = 0
 }
 
 /** In-memory transport for unit tests / UI previews, without any real hardware. */
