@@ -16,6 +16,7 @@ object FieldCodec {
         for (i in 0 until spec.byteLength) {
             raw = (raw shl 8) or (payload[skipBytes + i].toLong() and 0xFF)
         }
+        spec.bit?.let { return (raw shr it) and ((1L shl spec.bitCount) - 1) }
         if (spec.signed) {
             val bits = spec.byteLength * 8
             val signBit = 1L shl (bits - 1)

@@ -12,6 +12,17 @@ class Elm327ClientTest {
     }
 
     @Test
+    fun canResponseIdFollowsSuzukiAddressing() {
+        val expected = mapOf(
+            0x7E0 to 0x7E8, 0x7E1 to 0x7E9, 0x7DF to 0x7E8, 0x261 to 0x661, 0x271 to 0x671,
+            0x715 to 0x725, 0x750 to 0x760, 0x777 to 0x787, 0x798 to 0x7A8, 0x784 to 0x785, 0x740 to 0x760,
+        )
+        for ((request, response) in expected) {
+            assertEquals(response, Elm327Client.canResponseId(request), "request %03X".format(request))
+        }
+    }
+
+    @Test
     fun parseHexBytesHandlesSpacedHex() {
         val bytes = Elm327Client.parseHexBytes("61 15 50")
         assertEquals(listOf<Byte>(0x61, 0x15, 0x50), bytes.toList())

@@ -416,7 +416,22 @@ class Elm327LiveDataSource(
             results[id] = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true) }
             delay(50)
         }
-        return buildSnapshot(results)
+        onProgress("Reading ECU identification")
+        val ident = IDENTIFIERS.map { (id, name) ->
+            val result = runCatching { client.requestHex(byteArrayOf(0x1A, id.toByte()), 1500, checkReply = true) }
+            delay(50)
+            result.fold(
+                onSuccess = { bytes ->
+                    val data = bytes.drop(2).toByteArray()
+                    val text = data.filter { it in 0x20..0x7E }.map { it.toInt().toChar() }.joinToString("").trim()
+                    "1A%02X %-20s %s%s".format(id, name, bytes.toHex(), if (text.isNotEmpty()) "  \"$text\"" else "")
+                },
+                onFailure = { "1A%02X %-20s failed: %s".format(id, name, describeError(it)) },
+            )
+        }
+        ioLog.append(IoDirection.RECEIVED, "ECU IDENT\n" + ident.joinToString("\n"))
+        val snapshot = buildSnapshot(results)
+        return EcuSnapshot(snapshot.tables, snapshot.text + "\n\nECU %03X identification (KWP2000 service 1A)\n".format(ENGINE_ECU) + ident.joinToString("\n"))
     }
 
     /** Called with each snapshot read gradually in the background after connecting (CAN only). */
@@ -489,6 +504,12 @@ class Elm327LiveDataSource(
 
     internal companion object {
         const val ENGINE_ECU = 0x7E0
+        // KWP2000 service 1A identifiers SZ Viewer reads; 87 (part number) selects its part-specific tables.
+        val IDENTIFIERS = listOf(
+            0x87 to "Part number", 0x90 to "VIN", 0x8A to "Supplier", 0x91 to "Hardware number",
+            0x94 to "Software number", 0x97 to "System name", 0x98 to "Tester serial", 0x99 to "Programming date",
+            0x9A to "Identifier 9A",
+        )
         const val PERF_WINDOW_MS = 10_000L
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6

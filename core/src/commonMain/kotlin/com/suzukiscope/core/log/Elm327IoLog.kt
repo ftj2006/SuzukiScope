@@ -20,16 +20,20 @@ data class IoLogEntry(val timestampMs: Long, val direction: IoDirection, val tex
 class Elm327IoLog(private val maxEntries: Int = 20_000) {
     private val entries = ArrayDeque<IoLogEntry>()
 
+    @kotlin.jvm.Synchronized
     fun append(direction: IoDirection, text: String) {
         entries.addLast(IoLogEntry(currentTimeMillis(), direction, text))
         if (entries.size > maxEntries) entries.removeFirst()
     }
 
+    @kotlin.jvm.Synchronized
     fun snapshot(): List<IoLogEntry> = entries.toList()
 
+    @kotlin.jvm.Synchronized
     fun clear() = entries.clear()
 
     fun toText(): String {
+        val entries = snapshot()
         if (entries.isEmpty()) return "No adapter traffic logged yet."
         return entries.joinToString("\n") { e ->
             val tag = when (e.direction) {

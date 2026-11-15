@@ -148,7 +148,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     suspend fun configureCan(targetAddress: Int) {
         val requestId = targetAddress and 0x7FF
         sendCommand("ATSH%03X".format(requestId))
-        sendCommand("ATCRA%03X".format((requestId + 8) and 0x7FF))
+        sendCommand("ATCRA%03X".format(canResponseId(requestId)))
         sendCommand("ATFCSH%03X".format(requestId))
         sendCommand("ATFCSD300000")
         sendCommand("ATFCSM1")
@@ -195,10 +195,20 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     }
 
     companion object {
+        /** Reply CAN id for a Suzuki request id, per SZ Viewer (e.g. 7E0->7E8, 261->661, 798->7A8, 784->785). */
+        fun canResponseId(requestId: Int): Int = when (requestId) {
+            0x784 -> 0x785
+            0x7DF -> 0x7E8 // OBD functional broadcast: listen to the engine ECU
+            in 0x200..0x2FF -> requestId + 0x400
+            in 0x710..0x71F, in 0x750..0x75F, in 0x770..0x77F, in 0x790..0x79F -> requestId + 0x10
+            in 0x7E0..0x7FF -> requestId or 0x08
+            else -> requestId + 0x20
+        } and 0x7FF
+
         private const val LATE_REPLY_WAIT_MS = 150L
         private const val MAX_STALE_REPLIES = 4
-        // Mode 01 (PID), 10 (session), 21 (local id), 2C (dynamic id) echo their first parameter.
-        private val ECHOING_SERVICES = setOf(0x01, 0x10, 0x21, 0x2C)
+        // Mode 01 (PID), 10 (session), 1A (identification), 21 (local id), 2C (dynamic id) echo their first parameter.
+        private val ECHOING_SERVICES = setOf(0x01, 0x10, 0x1A, 0x21, 0x2C)
         const val TRUNCATED_REPLY = "Truncated reply"
         private val ADAPTER_ERRORS = listOf("NO DATA", "ERROR", "STOPPED", "UNABLE TO CONNECT", "BUS BUSY", "BUFFER FULL")
 

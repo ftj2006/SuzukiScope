@@ -1,5 +1,5 @@
-- Fault codes: engine read tries Suzuki and OBD-II stored/pending/permanent codes, shows refusals
-- Clear codes with confirmation; ECU snapshot saved before and after, odometer and trims refreshed
-- Fault history and other modules in their own cards; live data pauses during code reads
-- Settings and Diagnostics split into two cards with grouped options
-- "Speed probes" removed (finished)
+- Fault codes read the way SZ Viewer does (18 00 per group, UDS fallback); clear handles "busy" replies
+- Other CAN modules now listened to on their real reply IDs (ABS, BCM, PS, TPMS, AT...)
+- 379 new catalogue fields, incl. on/off flags (fans, fuel pump, switches, cruise)
+- ECU snapshot now includes ECU identification (part number, VIN)
+- Fixed a log crash

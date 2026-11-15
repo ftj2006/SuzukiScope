@@ -8,3 +8,4 @@ local.properties
 
 # Third-party vendor binaries (proprietary, not ours to redistribute) - kept locally only
 reference/original-release/
+reference/sz-viewer/

@@ -4,12 +4,14 @@ import com.suzukiscope.core.field.FieldDefinition
 
 /** Friendly names for the module id prefixes seen in the field catalog (see reference/extract_fields.py). */
 private val friendlyModuleNames = mapOf(
+    "4wd" to "4WD",
     "abs" to "ABS / Brakes",
     "adm" to "ADM (Auto Distance)",
     "alc" to "ALC (Auto Light Control)",
     "at" to "Automatic Transmission",
     "bcm" to "Body Control Module",
     "bmu" to "Battery Management",
+    "csw" to "Lighting / Turn Signal Switch",
     "dcbs" to "Combined Brake System",
     "ecall" to "eCall",
     "engine" to "Engine",

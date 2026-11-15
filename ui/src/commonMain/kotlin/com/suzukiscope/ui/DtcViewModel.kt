@@ -22,8 +22,9 @@ class DtcViewModel(
     /** Saves an engine snapshot with the given file-name suffix (bus already paused); returns the file name. */
     private val snapshot: suspend (suffix: String) -> String = { error("snapshots are not available") },
 ) {
-    private var client: Elm327Client? = null
+    private var session: DtcSession? = null
     private var ioLog: (String) -> Unit = {}
+    private var heartbeat: () -> Unit = {}
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
@@ -51,8 +52,8 @@ class DtcViewModel(
     val probeStatus: StateFlow<String?> = _probeStatus.asStateFlow()
 
     fun attachClient(client: Elm327Client, log: (String) -> Unit = {}) {
-        this.client = client
         ioLog = log
+        session = DtcSession(client, DtcDescriptions::describe) { line -> ioLog(line); heartbeat() }
         _status.value = "Ready"
     }
 
@@ -62,14 +63,16 @@ class DtcViewModel(
     }
 
     private suspend fun withSession(onMissing: () -> Unit, block: suspend (DtcSession) -> Unit) {
-        val c = client ?: run { onMissing(); return }
+        val s = session ?: run { onMissing(); return }
         if (_busy.value) return
         _busy.value = true
         try {
-            busAccess { heartbeat ->
-                block(DtcSession(c, DtcDescriptions::describe) { line -> ioLog(line); heartbeat() })
+            busAccess { beat ->
+                heartbeat = beat
+                block(s)
             }
         } finally {
+            heartbeat = {}
             _busy.value = false
         }
     }

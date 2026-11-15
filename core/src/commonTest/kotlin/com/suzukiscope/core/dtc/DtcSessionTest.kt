@@ -23,7 +23,7 @@ class DtcSessionTest {
 
     @Test
     fun readsSuzukiCodesWithStatus() = runTest {
-        val s = session { cmd, _ -> if (cmd == "1802FF00") "58020120E0412020" else "NO DATA" }
+        val s = session { cmd, _ -> if (cmd == "18000000") "58020120E0412020" else if (cmd.startsWith("1800")) "5800" else "NO DATA" }
         val codes = s.readDtcs(0x7E0, isCan = true)
         assertEquals(listOf("P0120", "C0120"), codes.map { it.code })
         assertEquals(listOf(0xE0, 0x20), codes.map { it.statusByte })
@@ -33,11 +33,12 @@ class DtcSessionTest {
     @Test
     fun reportsEachEngineReadMethodSeparately() = runTest {
         val s = session { cmd, _ ->
-            when (cmd) {
-                "1802FF00" -> "7F1811"
-                "03" -> "43010120"
-                "07" -> "4700"
-                "0A" -> "7F0A11"
+            when {
+                cmd.startsWith("18") -> "7F1811"
+                cmd.startsWith("19") -> "7F1911"
+                cmd == "03" -> "43010120"
+                cmd == "07" -> "4700"
+                cmd == "0A" -> "7F0A11"
                 else -> "NO DATA"
             }
         }
@@ -75,5 +76,37 @@ class DtcSessionTest {
             }
         }
         assertEquals("Codes cleared (OBD-II mode 04)", s.clearEngine())
+    }
+
+    @Test
+    fun clearAcceptsResponsePendingFollowedByTheAnswer() = runTest {
+        val s = session { cmd, _ -> if (cmd == "14FF00") "7F1478\r54FF00" else "NO DATA" }
+        assertEquals("Codes cleared (Suzuki service 14)", s.clearEngine())
+    }
+
+    @Test
+    fun readsEveryGroupLikeSzViewerAndMergesCodes() = runTest {
+        val requests = mutableListOf<String>()
+        val s = session { cmd, _ ->
+            requests += cmd
+            when (cmd) {
+                "18000000" -> "5801012060"
+                "1800FFFF" -> "5802012060412020"
+                else -> if (cmd.startsWith("1800")) "7F1812" else "NO DATA"
+            }
+        }
+        assertEquals(listOf("P0120", "C0120"), s.readDtcs(0x7E0, isCan = true).map { it.code })
+        assertEquals(listOf("18000000", "18004000", "18008000", "1800C000", "1800FF00", "1800FFFF"), requests.filter { it.startsWith("18") })
+    }
+
+    @Test
+    fun fallsBackToUdsWhenServiceEighteenIsUnsupported() = runTest {
+        val s = session { cmd, _ ->
+            when (cmd) {
+                "1902FF" -> "5902FF01200A2F"
+                else -> if (cmd.startsWith("18")) "7F1811" else "NO DATA"
+            }
+        }
+        assertEquals(listOf("P0120-0A"), s.readDtcs(0x7E0, isCan = true).map { it.code })
     }
 }

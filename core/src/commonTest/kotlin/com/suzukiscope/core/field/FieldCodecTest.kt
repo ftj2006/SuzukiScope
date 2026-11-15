@@ -20,6 +20,14 @@ class FieldCodecTest {
     }
 
     @Test
+    fun decodesBitFlagsAndBitGroups() {
+        val payload = byteArrayOf(0x61, 0x00, 0b0000_1101)
+        assertEquals(1.0, FieldCodec.decode(DecodeSpec(skipBytes = 2, bit = 0), payload))
+        assertEquals(0.0, FieldCodec.decode(DecodeSpec(skipBytes = 2, bit = 1), payload))
+        assertEquals(3.0, FieldCodec.decode(DecodeSpec(skipBytes = 2, bit = 2, bitCount = 2), payload))
+    }
+
+    @Test
     fun decodesTwoByteScaledValue() {
         val spec = DecodeSpec(skipBytes = 2, byteLength = 2, scale = 0.25)
         val payload = byteArrayOf(0x21, 0x0C, 0x1F, 0x40) // 0x1F40 = 8000 * 0.25 = 2000

@@ -85,4 +85,7 @@ data class DecodeSpec(
     val offset: Double = 0.0,
     /** If set, the value at this offset (same length/sign/scale) is subtracted, e.g. barometric from manifold pressure. */
     val subtractSkipBytes: Int? = null,
+    /** If set, only [bitCount] bits starting at this bit (0 = least significant) are used, before scale/offset. */
+    val bit: Int? = null,
+    val bitCount: Int = 1,
 )
