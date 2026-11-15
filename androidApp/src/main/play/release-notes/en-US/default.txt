@@ -1,4 +1,2 @@
-- ECU snapshot no longer runs automatically after connecting; use Settings > Diagnostics > Save snapshot
-- Snapshot includes ECU identification (part number, VIN)
-- Fault codes read the way SZ Viewer does; other CAN modules listened to on their real reply IDs
-- 379 new catalogue fields, incl. on/off flags (fans, fuel pump, switches, cruise)
+- Internal clean-up after removing the automatic ECU snapshot on connect
+- Tip: run Settings > Diagnostics > Test all fields to hide catalogue fields your car does not answer
