@@ -95,8 +95,14 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     }
 
     Column(modifier.fillMaxSize().padding(12.dp)) {
-        // Rarely changed settings live in a collapsible section so the field list gets most of the screen.
-        val settings: @Composable () -> Unit = {
+        // Rarely changed settings live in collapsible cards so the field list gets most of the screen.
+        SectionCard(
+            icon = Icons.Outlined.Settings,
+            title = "Settings",
+            summary = "${autoLayout.rows.size} Android Auto rows \u00B7 ${if (showNoDataFields) "showing" else "hiding"} $noDataCount no-data field(s)",
+            expanded = settingsExpanded,
+            onToggle = { settingsExpanded = !settingsExpanded },
+        ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text("Android Auto rows", style = androidx.compose.material3.MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             TextButton(
@@ -115,81 +121,36 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-            Checkbox(checked = showNoDataFields, onCheckedChange = { showNoDataFields = it })
-            Text(
-                "Show $noDataCount field(s) with no data",
-                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-            )
+        ToggleRow("Show $noDataCount field(s) with no data", showNoDataFields) { showNoDataFields = it }
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clickable { diagnosticsExpanded = !diagnosticsExpanded },
+        SectionCard(
+            icon = Icons.Outlined.BugReport,
+            title = "Diagnostics",
+            summary = "Logs ${if (debugLogsEnabled) "on" else "off"} \u00B7 Test data ${if (testDataEnabled) "on" else "off"} \u00B7 ECU tools",
+            expanded = diagnosticsExpanded,
+            onToggle = { diagnosticsExpanded = !diagnosticsExpanded },
         ) {
-            Text("Diagnostics", style = androidx.compose.material3.MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Text(if (diagnosticsExpanded) "\u25BE" else "\u25B8", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-        }
-        if (diagnosticsExpanded) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Checkbox(checked = debugLogsEnabled, onCheckedChange = { viewModel.setDebugLogsEnabled(it) })
-                Text("Save connection logs", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                IconButton(onClick = { debugLogOpen = true }, enabled = debugLogsEnabled) {
-                    androidx.compose.material3.Icon(Icons.Outlined.BugReport, contentDescription = "View connection logs")
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = testDataEnabled, onCheckedChange = { viewModel.setTestDataEnabled(it) })
-                Text("Show test data option", style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Check which fields return data on this car",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = { coroutineScope.launch { viewModel.probeAllFieldsForData() } }) {
-                    Text("Test all fields")
-                }
+            SubHeading("Logging")
+            ToggleRow("Save connection logs", debugLogsEnabled) { viewModel.setDebugLogsEnabled(it) }
+            TextButton(onClick = { debugLogOpen = true }, enabled = debugLogsEnabled) { Text("View connection logs") }
+            SubHeading("Testing")
+            ToggleRow("Show test data option", testDataEnabled) { viewModel.setTestDataEnabled(it) }
+            ActionRow("Check which fields return data on this car", "Test all fields") {
+                coroutineScope.launch { viewModel.probeAllFieldsForData() }
             }
             if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
-                Text(
-                    "Engine ECU tools (engine running, live data paused while they run)",
-                    style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { coroutineScope.launch { viewModel.probeEcuTables() } }) {
-                        Text("Probe tables")
-                    }
-                    TextButton(onClick = { coroutineScope.launch { viewModel.saveEcuSnapshot() } }) {
-                        Text("Save snapshot")
-                    }
-                    TextButton(onClick = { coroutineScope.launch { viewModel.runSpeedProbes() } }) {
-                        Text("Speed probes")
-                    }
+                SubHeading("Engine ECU (engine running; live data pauses while these run)")
+                ActionRow("Save every ECU table to a dated file", "Save snapshot") {
+                    coroutineScope.launch { viewModel.saveEcuSnapshot() }
+                }
+                ActionRow("Log the size and time of tables 21 00\u201321 FF", "Probe tables") {
+                    coroutineScope.launch { viewModel.probeEcuTables() }
                 }
             }
-        }
-        fieldProbeStatus?.let {
-            Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 2.dp))
-        }
-        }
-        androidx.compose.material3.Card(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clickable { settingsExpanded = !settingsExpanded },
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                androidx.compose.material3.Icon(Icons.Outlined.Settings, contentDescription = null)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text("Settings", style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
-                    Text(
-                        "${protocolName(vehicleProtocol)} \u00B7 ${autoLayout.rows.size} Android Auto rows \u00B7 Logs ${if (debugLogsEnabled) "on" else "off"}",
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-                    )
-                }
-                Text(if (settingsExpanded) "\u25BE" else "\u25B8", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            fieldProbeStatus?.let {
+                Text(it, style = androidx.compose.material3.MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             }
         }
-        if (settingsExpanded) settings()
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it },
@@ -443,9 +404,61 @@ private fun AutoRowHeader(title: String, row: AutoRow, count: Int?, minWidth: In
     }
 }
 
-private fun protocolName(protocol: Elm327Protocol): String = when (protocol) {
-    Elm327Protocol.CAN_11BIT_500K -> "CAN"
-    Elm327Protocol.KWP_FAST -> "K-Line (KWP)"
+@Composable
+internal fun SectionCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    summary: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    androidx.compose.material3.Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            androidx.compose.material3.Icon(icon, contentDescription = null)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(title, style = androidx.compose.material3.MaterialTheme.typography.titleSmall)
+                Text(summary, style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
+            }
+            Text(if (expanded) "\u25BE" else "\u25B8", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+        }
+        if (expanded) {
+            androidx.compose.material3.HorizontalDivider()
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) { content() }
+        }
+    }
+}
+
+@Composable
+internal fun SubHeading(text: String) {
+    Text(
+        text,
+        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+        color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+internal fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(vertical = 2.dp),
+    ) {
+        Text(label, style = androidx.compose.material3.MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+internal fun ActionRow(description: String, action: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(description, style = androidx.compose.material3.MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        androidx.compose.material3.OutlinedButton(onClick = onClick, enabled = enabled) { Text(action) }
+    }
 }
 
 /** Lets the user set/clear a field's gauge minimum/maximum (hidden for percentage fields, which

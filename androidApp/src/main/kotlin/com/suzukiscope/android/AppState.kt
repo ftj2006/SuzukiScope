@@ -81,6 +81,8 @@ object AppState {
     )
     val dtcViewModel = DtcViewModel(
         persistUnresponsiveModules = { keys -> dtcModulesFile?.let { runCatching { it.parentFile?.mkdirs(); it.writeText(keys.joinToString(",")) } } },
+        busAccess = { block -> dashboardViewModel.withBusPaused(block) },
+        snapshot = { suffix -> dashboardViewModel.snapshotWhilePaused(suffix) },
     )
 
     private val _connectionStatus = MutableStateFlow("Simulated data")
@@ -425,7 +427,8 @@ object AppState {
             source.connect()
             _connectionStatus.value = "ELM327 ready; starting live data..."
             dashboardViewModel.useSource(source)
-            dtcViewModel.attachClient(source.client)
+            val ioLog = source.ioLog
+            dtcViewModel.attachClient(source.client) { line -> ioLog.append(com.suzukiscope.core.log.IoDirection.RECEIVED, line) }
             _connectionStatus.value = connectionStatusFor(transport)
             rememberLastConnection(if (transport is WifiTransport) "wifi" else "bluetooth:${transport.name.removePrefix("bt://")}")
             if (transport is WifiTransport) lockToCurrentSsidIfUnset()

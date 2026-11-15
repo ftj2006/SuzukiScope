@@ -538,11 +538,6 @@ class DashboardViewModel(
         "Table probe done: $summary. Export the connection log to share it."
     }
 
-    /** Pauses polling and runs the read-only speed experiments (see [Elm327LiveDataSource.runSpeedProbes]). */
-    suspend fun runSpeedProbes() = withPollingPaused("Speed probes") { liveSource, progress ->
-        "Speed probes: " + liveSource.runSpeedProbes(progress)
-    }
-
     /** Pauses polling, reads every known engine table and saves them to a dated file. */
     suspend fun saveEcuSnapshot() = withPollingPaused("ECU snapshot") { liveSource, progress ->
         val snapshot = liveSource.readEcuSnapshot(progress)
@@ -560,11 +555,27 @@ class DashboardViewModel(
         _ecuTables.value = com.suzukiscope.core.ecu.EcuTables.fromText(text)
     }
 
-    private fun saveSnapshotFile(snapshot: com.suzukiscope.core.session.EcuSnapshot): String {
+    private fun saveSnapshotFile(snapshot: com.suzukiscope.core.session.EcuSnapshot, suffix: String = ""): String {
         val id = newSessionId()
-        val name = "pj-suzukiscope-ecu-snapshot-$id.txt"
-        exportSink(listOf(ExportFile(name, "Snapshot $id\n" + snapshot.text)))
+        val name = "pj-suzukiscope-ecu-snapshot-$id$suffix.txt"
+        exportSink(listOf(ExportFile(name, "Snapshot $id$suffix\n" + snapshot.text)))
         return name
+    }
+
+    /**
+     * Reads, saves (with [suffix] in the file name) and remembers an engine snapshot, refreshing the
+     * odometer, learned trims and fault history. Call only inside [withBusPaused].
+     */
+    suspend fun snapshotWhilePaused(suffix: String): String {
+        val liveSource = source as? Elm327LiveDataSource ?: error("not connected to the adapter")
+        // Another feature may have re-addressed the adapter since polling stopped.
+        liveSource.resetBusState()
+        val snapshot = liveSource.readEcuSnapshot { lastReadingAtMs = currentTimeMillis() }
+        check(snapshot.tables.isNotEmpty()) { "the ECU returned no tables" }
+        val file = saveSnapshotFile(snapshot, suffix)
+        rememberSnapshot(snapshot)
+        logConnectionEvent("ECU snapshot saved as $file")
+        return file
     }
 
     private fun rememberSnapshot(snapshot: com.suzukiscope.core.session.EcuSnapshot) {
@@ -590,6 +601,23 @@ class DashboardViewModel(
             logConnectionEvent("ECU snapshot: no change in stored data, not saved")
         }
         rememberSnapshot(snapshot)
+    }
+
+    /**
+     * Runs [block] with live polling stopped, then has polling re-address the ECU before resuming.
+     * [block] calls its heartbeat after each request so the reconnect watchdog doesn't see a stall.
+     */
+    suspend fun withBusPaused(block: suspend (heartbeat: () -> Unit) -> Unit) {
+        val wasRunning = pollJob != null
+        val current = source
+        stop()
+        try {
+            block { lastReadingAtMs = currentTimeMillis() }
+        } finally {
+            (current as? Elm327LiveDataSource)?.resetBusState()
+            lastReadingAtMs = currentTimeMillis()
+            if (wasRunning && source === current) start()
+        }
     }
 
     private suspend fun withPollingPaused(task: String, block: suspend (Elm327LiveDataSource, (String) -> Unit) -> String) {

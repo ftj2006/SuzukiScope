@@ -20,3 +20,28 @@ fun formatDtc(highByte: Int, lowByte: Int): String {
 }
 
 data class DtcCode(val code: String, val statusByte: Int? = null, val description: String? = null)
+
+/** How a set of codes was read: Suzuki's own KWP service 18, or the generic OBD-II modes. */
+enum class DtcSource(val label: String) {
+    SUZUKI("Suzuki codes"),
+    STORED("Stored (OBD-II)"),
+    PENDING("Pending (OBD-II)"),
+    PERMANENT("Permanent (OBD-II)"),
+}
+
+/** One read method's outcome: its codes, or [error] when the ECU refused or didn't answer. */
+data class DtcReadResult(val source: DtcSource, val codes: List<DtcCode>, val error: String? = null)
+
+class DtcRefusedException(val nrc: Int) : Exception("not supported by this module (NRC %02X)".format(nrc))
+
+/** KWP2000 statusOfDTC: bits 5-6 storage state, bit 7 warning lamp. */
+fun describeDtcStatus(status: Int): String {
+    val state = when ((status shr 5) and 0x03) {
+        3 -> "present now"
+        2 -> "intermittent"
+        1 -> "stored, not present now"
+        else -> "not detected"
+    }
+    val lamp = if (status and 0x80 != 0) ", warning light on" else ""
+    return "$state$lamp (status %02X)".format(status)
+}

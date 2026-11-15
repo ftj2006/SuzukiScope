@@ -12,52 +12,39 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import com.suzukiscope.android.AppState
-import com.suzukiscope.ui.moduleOptionsFrom
 import kotlinx.coroutines.launch
 
-/** Read/clear DTCs for the first available module, using the same connection as the phone app. */
+/** Reads the engine ECU's fault codes, using the same connection as the phone app. Clearing is phone-only (it needs a confirmation). */
 class DtcCarScreen(carContext: CarContext) : Screen(carContext) {
 
     init {
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                lifecycleScope.launch { AppState.dtcViewModel.status.collect { invalidate() } }
-                lifecycleScope.launch { AppState.dtcViewModel.codes.collect { invalidate() } }
+                lifecycleScope.launch { AppState.dtcViewModel.engineStatus.collect { invalidate() } }
+                lifecycleScope.launch { AppState.dtcViewModel.engineResults.collect { invalidate() } }
             }
         })
     }
 
     override fun onGetTemplate(): Template {
-        val module = moduleOptionsFrom(AppState.dashboardViewModel.fields.value).firstOrNull()
-        val status = AppState.dtcViewModel.status.value
-        val codes = AppState.dtcViewModel.codes.value
+        val status = AppState.dtcViewModel.engineStatus.value
+        val results = AppState.dtcViewModel.engineResults.value.orEmpty()
 
         val itemListBuilder = ItemList.Builder()
-        itemListBuilder.addItem(Row.Builder().setTitle("Module").addText(module?.label ?: "None connected").build())
-        itemListBuilder.addItem(Row.Builder().setTitle("Status").addText(status).build())
-        for (code in codes) {
-            itemListBuilder.addItem(Row.Builder().setTitle(code.code).addText(code.description ?: "No description").build())
+        itemListBuilder.addItem(Row.Builder().setTitle("Engine").addText(status).build())
+        for (result in results) {
+            for (code in result.codes) {
+                itemListBuilder.addItem(
+                    Row.Builder().setTitle("${code.code} \u00B7 ${result.source.label}").addText(code.description ?: "No description").build(),
+                )
+            }
         }
 
         val actionStrip = ActionStrip.Builder()
             .addAction(
                 Action.Builder()
                     .setTitle("Read codes")
-                    .setOnClickListener {
-                        module?.let {
-                            lifecycleScope.launch { AppState.dtcViewModel.readCodes(it.targetAddress, it.isFunctionalAddress, it.isCan) }
-                        }
-                    }
-                    .build(),
-            )
-            .addAction(
-                Action.Builder()
-                    .setTitle("Clear codes")
-                    .setOnClickListener {
-                        module?.let {
-                            lifecycleScope.launch { AppState.dtcViewModel.clearCodes(it.targetAddress, isFunctionalAddress = false, isCan = it.isCan) }
-                        }
-                    }
+                    .setOnClickListener { lifecycleScope.launch { AppState.dtcViewModel.readEngine() } }
                     .build(),
             )
             .build()

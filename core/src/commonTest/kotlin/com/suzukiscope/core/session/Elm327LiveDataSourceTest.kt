@@ -203,29 +203,6 @@ class Elm327LiveDataSourceTest {
         assertEquals(Elm327LiveDataSource.CAN_TABLE_RETRY_MS, source.retryDelayMs(table, 4))
     }
 
-    @Test
-    fun speedProbesReportServiceSupportAndRestoreAdaptiveTiming() = runTest {
-        val requests = mutableListOf<String>()
-        val transport = LoopbackTransport { bytes ->
-            val cmd = bytes.decodeToString().trim()
-            requests += cmd
-            when {
-                cmd.startsWith("22") -> "7F2231"
-                cmd.startsWith("23") -> "7F2311"
-                cmd == "2100" -> "61" + "00".repeat(209)
-                else -> "OK"
-            }.plus("\r>").encodeToByteArray()
-        }
-        val source = Elm327LiveDataSource(transport, Elm327Protocol.CAN_11BIT_500K)
-        source.connect()
-        val summary = source.runSpeedProbes {}
-        kotlin.test.assertContains(summary, "22 F1 90: refused, NRC 31")
-        kotlin.test.assertContains(summary, "23 000000 x4: refused, NRC 11")
-        kotlin.test.assertContains(summary, "21 00 with no gap: reply median")
-        kotlin.test.assertContains(summary, "0 failed, 0 cut short")
-        assertEquals("ATAT0", requests.last { it.startsWith("ATAT") })
-    }
-
     private fun obdField(id: String, pids: List<Int>, decode: DecodeSpec, fallback: FieldFallback? = null) = FieldDefinition(
         id = id,
         label = id,

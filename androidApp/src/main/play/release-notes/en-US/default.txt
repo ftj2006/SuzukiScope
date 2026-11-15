@@ -1,4 +1,5 @@
-- Fewer gauge freezes under boost: slow engine replies are kept (up to 1.5 s) and retried at once
-- Background ECU snapshot reads wait for light load (low boost and rpm)
-- Settings > Diagnostics: "Speed probes" tests services 22/23, no request gap and adaptive timing
-- "Time replies" removed (finished)
+- Fault codes: engine read tries Suzuki and OBD-II stored/pending/permanent codes, shows refusals
+- Clear codes with confirmation; ECU snapshot saved before and after, odometer and trims refreshed
+- Fault history and other modules in their own cards; live data pauses during code reads
+- Settings and Diagnostics split into two cards with grouped options
+- "Speed probes" removed (finished)

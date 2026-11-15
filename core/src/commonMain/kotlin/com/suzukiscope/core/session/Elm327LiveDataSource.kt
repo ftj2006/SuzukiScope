@@ -302,69 +302,6 @@ class Elm327LiveDataSource(
     }
 
     /**
-     * Read-only experiments for faster live data: whether the ECU answers service 22 (values by ID) or
-     * 23 (memory reads), and whether this adapter copes with no gap between requests or adaptive timing.
-     */
-    suspend fun runSpeedProbes(onProgress: (String) -> Unit): String {
-        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Speed probes need a CAN connection" }
-        ensureCanHeader(ENGINE_ECU)
-        val results = ArrayList<String>()
-
-        onProgress("Speed probes: services 22 and 23")
-        // An NRC of 11 means the service is unsupported; 31 (out of range) or 33 (security) means it exists.
-        val serviceRequests = listOf(
-            "22 F1 90" to byteArrayOf(0x22, 0xF1.toByte(), 0x90.toByte()),
-            "22 01 00" to byteArrayOf(0x22, 0x01, 0x00),
-            "23 000000 x4" to byteArrayOf(0x23, 0x00, 0x00, 0x00, 0x04),
-            "23 800000 x4" to byteArrayOf(0x23, 0x80.toByte(), 0x00, 0x00, 0x04),
-        )
-        for ((name, payload) in serviceRequests) {
-            val start = currentTimeMillis()
-            val reply = runCatching { client.requestHex(payload, 1500) }
-            val ms = currentTimeMillis() - start
-            val answer = reply.getOrNull()
-            results += "$name: " + when {
-                answer == null -> "no reply (${reply.exceptionOrNull()?.let(::describeError)})"
-                answer.size >= 3 && answer[0] == 0x7F.toByte() -> "refused, NRC %02X".format(answer[2].toInt() and 0xFF)
-                else -> "ANSWERED in $ms ms: " + answer.joinToString("") { "%02X".format(it) }
-            }
-            delay(50)
-        }
-
-        suspend fun timeLiveTable(label: String, gapMs: Long): String {
-            val times = ArrayList<Long>()
-            var failed = 0
-            var cutShort = 0
-            val passStart = currentTimeMillis()
-            repeat(SPEED_PROBE_REQUESTS) { index ->
-                // Per request, so a slow pass doesn't look like a stall to the reconnect watchdog.
-                onProgress("Speed probes: $label ${index + 1}/$SPEED_PROBE_REQUESTS")
-                val start = currentTimeMillis()
-                val reply = runCatching { client.requestHex(byteArrayOf(0x21, 0x00), 1500, checkReply = true) }.getOrNull()
-                when {
-                    reply == null -> failed++
-                    reply.size < LIVE_TABLE_BYTES -> cutShort++
-                    else -> times += currentTimeMillis() - start
-                }
-                if (gapMs > 0) delay(gapMs)
-            }
-            val perUpdate = (currentTimeMillis() - passStart) / SPEED_PROBE_REQUESTS
-            val median = times.sorted().getOrNull(times.size / 2)
-            return "$label: reply median ${median ?: "-"} ms, %d ms per update, %d failed, %d cut short"
-                .format(perUpdate, failed, cutShort)
-        }
-
-        results += timeLiveTable("21 00 with 20 ms gap", 20)
-        results += timeLiveTable("21 00 with no gap", 0)
-        runCatching { client.sendCommand("ATAT1") }
-        results += timeLiveTable("21 00 with ATAT1, 20 ms gap", 20)
-        runCatching { client.sendCommand("ATAT0") }
-
-        results.forEach { ioLog.append(IoDirection.RECEIVED, "SPEED PROBE $it") }
-        return results.joinToString("; ")
-    }
-
-    /**
      * One-off probe of every engine ECU local data table (`21 00`-`21 FF`), logging each one's
      * reply size and time, to look for a table smaller than `21 00` that could be polled faster.
      * Returns a one-line summary. Only meaningful on CAN.
@@ -400,6 +337,13 @@ class Elm327LiveDataSource(
             if (found.isEmpty()) "" else ": " + found.joinToString(" ")
         ioLog.append(IoDirection.RECEIVED, "TABLE PROBE done: $summary")
         return summary
+    }
+
+    /** Forgets the adapter's header/filter setup after another feature (e.g. DTC reads) changed it. */
+    fun resetBusState() {
+        lastHeader = null
+        canConfiguration = null
+        kwpInitialisedTarget = null
     }
 
     private suspend fun ensureHeader(field: FieldDefinition) {
@@ -553,9 +497,6 @@ class Elm327LiveDataSource(
         const val KWP_RECOVERY_FAILURES = 6
         const val KWP_RECOVERY_GAP_MS = 5000L
         const val KWP_INIT_RETRY_MS = 10_000L
-        const val SPEED_PROBE_REQUESTS = 20
-        // 61 00 header + 208 data bytes; fewer means the adapter stopped reading early.
-        const val LIVE_TABLE_BYTES = 210
 
         // Data bytes per standard OBD-II mode 01 PID (SAE J1979), needed to split batched replies.
         val PID_DATA_LENGTHS = mapOf(
