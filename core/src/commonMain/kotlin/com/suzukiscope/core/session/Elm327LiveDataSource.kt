@@ -1,5 +1,6 @@
 package com.suzukiscope.core.session
 
+import com.suzukiscope.core.ecu.EcuTables
 import com.suzukiscope.core.elm327.Elm327Client
 import com.suzukiscope.core.elm327.Elm327Protocol
 import com.suzukiscope.core.elm327.busProtocol
@@ -15,6 +16,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+/** Engine ECU tables read in one pass: [tables] holds the successful replies, [text] the annotated file contents. */
+class EcuSnapshot(val tables: Map<Int, ByteArray>, val text: String)
 
 /**
  * Real hardware [LiveDataSource]: talks to an ELM327 adapter over any [Transport]
@@ -99,7 +103,11 @@ class Elm327LiveDataSource(
         ioLog.append(IoDirection.RECEIVED, "ELM327 initialised for $protocol")
         initialised = true
         // No ATAT1: on Suzuki CAN adaptive timing cuts off the tail of slow multi-frame replies.
-        if (protocol == Elm327Protocol.CAN_11BIT_500K) querySupportedPids()
+        if (protocol == Elm327Protocol.CAN_11BIT_500K) {
+            querySupportedPids()
+            backgroundResults = LinkedHashMap()
+            cyclesSinceBackgroundRead = 0
+        }
     }
 
     private suspend fun querySupportedPids() {
@@ -342,36 +350,47 @@ class Elm327LiveDataSource(
     }
 
     /** Reads every engine table the ECU answered in the probe, as a dated text record for later comparison. */
-    suspend fun readEcuSnapshot(onProgress: (String) -> Unit): String {
+    suspend fun readEcuSnapshot(onProgress: (String) -> Unit): EcuSnapshot {
         check(protocol == Elm327Protocol.CAN_11BIT_500K) { "ECU snapshot needs a CAN connection" }
         ensureCanHeader(ENGINE_ECU)
-        val lines = ArrayList<String>()
-        for ((index, id) in SNAPSHOT_TABLES.withIndex()) {
-            onProgress("Reading ECU table ${index + 1}/${SNAPSHOT_TABLES.size}")
-            val result = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true) }
-            val line = result.fold(
-                onSuccess = { bytes -> "21%02X %3d bytes: %s%s".format(id, bytes.size - 2, bytes.toHex(), annotateSnapshot(id, bytes)) },
-                onFailure = { "21%02X failed: %s".format(id, describeError(it)) },
-            )
-            lines += line
+        val results = LinkedHashMap<Int, Result<ByteArray>>()
+        for ((index, id) in EcuTables.SNAPSHOT_TABLES.withIndex()) {
+            onProgress("Reading ECU table ${index + 1}/${EcuTables.SNAPSHOT_TABLES.size}")
+            results[id] = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true) }
             delay(50)
         }
-        ioLog.append(IoDirection.RECEIVED, "ECU SNAPSHOT read ${lines.count { !it.contains("failed") }}/${SNAPSHOT_TABLES.size} tables")
-        return "ECU %03X tables (KWP2000 service 21)\n".format(ENGINE_ECU) + lines.joinToString("\n")
+        return buildSnapshot(results)
     }
 
-    // Decodings confirmed against the car (see reference/ECU_SNAPSHOT_SUMMARY.md).
-    private fun annotateSnapshot(id: Int, bytes: ByteArray): String {
-        fun u16(at: Int) = ((bytes[at].toInt() and 0xFF) shl 8) or (bytes[at + 1].toInt() and 0xFF)
-        return when {
-            id == 0xD0 -> "  (text: " + bytes.drop(2).map { b -> val c = b.toInt() and 0xFF; if (c in 0x20..0x7E) c.toChar() else '.' }.joinToString("") + ")"
-            id == 0x34 && bytes.size >= 6 -> "  (engine starts: ${u16(2)}, odometer about ${u16(4) * 100} km)"
-            id in 0x40..0x49 && bytes.size >= 4 && (bytes[2].toInt() != 0 || bytes[3].toInt() != 0) -> {
-                val hi = bytes[2].toInt() and 0xFF
-                "  (stored fault code: %c%d%X%02X)".format("PCBU"[hi shr 6], (hi shr 4) and 3, hi and 0x0F, bytes[3].toInt() and 0xFF)
-            }
-            else -> ""
+    /** Called with each snapshot read gradually in the background after connecting (CAN only). */
+    var onBackgroundSnapshot: ((EcuSnapshot) -> Unit)? = null
+    private var backgroundResults: LinkedHashMap<Int, Result<ByteArray>>? = null
+    private var cyclesSinceBackgroundRead = 0
+
+    // One table every few cycles: each such cycle is ~150 ms slower, but live data never pauses.
+    override suspend fun endCycle() {
+        val results = backgroundResults ?: return
+        if (++cyclesSinceBackgroundRead < BACKGROUND_SNAPSHOT_EVERY_CYCLES) return
+        cyclesSinceBackgroundRead = 0
+        val id = EcuTables.SNAPSHOT_TABLES[results.size]
+        ensureCanHeader(ENGINE_ECU)
+        results[id] = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 800, checkReply = true) }
+        if (results.size == EcuTables.SNAPSHOT_TABLES.size) {
+            backgroundResults = null
+            onBackgroundSnapshot?.invoke(buildSnapshot(results))
         }
+    }
+
+    private fun buildSnapshot(results: Map<Int, Result<ByteArray>>): EcuSnapshot {
+        val lines = results.map { (id, result) ->
+            result.fold(
+                onSuccess = { bytes -> "21%02X %3d bytes: %s%s".format(id, bytes.size - 2, bytes.toHex(), EcuTables.annotate(id, bytes)) },
+                onFailure = { "21%02X failed: %s".format(id, describeError(it)) },
+            )
+        }
+        val tables = results.mapNotNull { (id, result) -> result.getOrNull()?.let { id to it } }.toMap()
+        ioLog.append(IoDirection.RECEIVED, "ECU SNAPSHOT read ${tables.size}/${results.size} tables")
+        return EcuSnapshot(tables, "ECU %03X tables (KWP2000 service 21)\n".format(ENGINE_ECU) + lines.joinToString("\n"))
     }
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02X".format(it) }
@@ -409,15 +428,12 @@ class Elm327LiveDataSource(
         ioLog.append(IoDirection.RECEIVED, "poll plan (full cycle): $plan")
     }
 
-    private companion object {
+    internal companion object {
         const val ENGINE_ECU = 0x7E0
         const val PERF_WINDOW_MS = 10_000L
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
-
-        // Tables the engine ECU answered in the 21 00-21 FF probe.
-        val SNAPSHOT_TABLES = listOf(0x00, 0x27, 0x28, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x3A, 0x3C, 0x3D) +
-            (0x40..0x49).toList() + listOf(0xA2, 0xD0)
+        const val BACKGROUND_SNAPSHOT_EVERY_CYCLES = 4
 
         // Data bytes per standard OBD-II mode 01 PID (SAE J1979), needed to split batched replies.
         val PID_DATA_LENGTHS = mapOf(

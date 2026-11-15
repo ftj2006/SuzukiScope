@@ -190,6 +190,14 @@ object AppState {
         }
     }
 
+    /** Restores the engine ECU tables from the last snapshot and saves each new one. */
+    fun initEcuTables(file: File) {
+        runCatching { file.readText() }.getOrNull()?.let { dashboardViewModel.loadEcuTables(it) }
+        dashboardViewModel.ecuTablesSink = { text ->
+            runCatching { file.parentFile?.mkdirs(); file.writeText(text) }
+        }
+    }
+
     /** Restores the chosen vehicle bus (or infers it from the enabled fields) and drops any other-bus fields. */
     fun initVehicleProtocol(file: File) {
         val saved = runCatching { Elm327Protocol.valueOf(file.readText().trim()) }.getOrNull()

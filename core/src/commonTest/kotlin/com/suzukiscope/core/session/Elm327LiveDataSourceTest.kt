@@ -52,6 +52,74 @@ class Elm327LiveDataSourceTest {
         }.encodeToByteArray()
     }
 
+    @Test
+    fun snapshotAnnotatesDecodedTables() = runTest {
+        // Replies from the car's 2026-11-10 snapshot.
+        val replies = mapOf(
+            "2130" to "613001187D00BF5665896D808580847B1D00DA0000C51405040261CDFFFFFFFFFFFFFFFFFFFFFF0000",
+            "2134" to "613418F50217E10117B70216DF0116DA00C85C00",
+            "2135" to "61350105042000000000000000000000C85B5580888085BC868A63",
+            "213A" to "613A0EFF0FFF8DFF",
+            "2141" to "61410504000000438087FFFF55",
+        )
+        val transport = LoopbackTransport { bytes ->
+            val cmd = bytes.decodeToString().trim()
+            (replies[cmd] ?: if (cmd.startsWith("21")) "7F2112" else "OK").plus("\r>").encodeToByteArray()
+        }
+        val source = Elm327LiveDataSource(transport, Elm327Protocol.CAN_11BIT_500K)
+        source.connect()
+        val snapshot = source.readEcuSnapshot {}.text
+        kotlin.test.assertContains(snapshot, "(engine starts: 6389, odometer: 51292 km)")
+        kotlin.test.assertContains(snapshot, "(record: P0504, odometer stamp 51291 km, baro 85 kPa, trims +0.0% / +6.3% / +0.0% / +3.9%)")
+        kotlin.test.assertContains(snapshot, "(record 1: P0504, odometer stamp 50452 km, trims +0.0% / +3.9% / +0.0% / +3.1%)")
+        kotlin.test.assertContains(snapshot, "(start log, newest first: 14 15 13 ...; 1 flagged)")
+        kotlin.test.assertContains(snapshot, "(stored fault code: P0504)")
+
+        val tables = source.readEcuSnapshot {}.tables
+        val summary = com.suzukiscope.core.ecu.EcuTables.summarise(tables)
+        assertEquals(6389, summary.engineStarts)
+        assertEquals(51292, summary.odometerKm)
+        assertEquals(listOf(6.25, 3.90625), summary.learnedTrims)
+        assertEquals("P0504", summary.latestFault?.code)
+        assertEquals(51291, summary.latestFault?.odometerKm)
+        assertEquals(
+            listOf("21 35" to 51291, "21 30" to 50452, "21 41" to null),
+            com.suzukiscope.core.ecu.EcuTables.faultHistory(tables).map { it.source to it.odometerKm },
+        )
+        assertEquals(tables.keys, com.suzukiscope.core.ecu.EcuTables.fromText(com.suzukiscope.core.ecu.EcuTables.toText(tables)).keys)
+
+        // A new drive bumps the start counter and odometer, which alone is not a change worth saving.
+        val nextDrive = tables + (0x34 to "613418F60217E10117B70216DF0116DA00C86000".hexBytes())
+        assertEquals(false, com.suzukiscope.core.ecu.EcuTables.differs(tables, nextDrive))
+        val newFault = tables + (0x41 to "61410113000000438087FFFF55".hexBytes())
+        assertEquals(true, com.suzukiscope.core.ecu.EcuTables.differs(tables, newFault))
+    }
+
+    @Test
+    fun readsSnapshotInTheBackgroundOneTableEveryFewCycles() = runTest {
+        val requests = mutableListOf<String>()
+        val transport = LoopbackTransport { bytes ->
+            val cmd = bytes.decodeToString().trim()
+            requests += cmd
+            (if (cmd.startsWith("21")) "61" + cmd.substring(2) + "00" else "OK").plus("\r>").encodeToByteArray()
+        }
+        val source = Elm327LiveDataSource(transport, Elm327Protocol.CAN_11BIT_500K)
+        var snapshot: EcuSnapshot? = null
+        source.onBackgroundSnapshot = { snapshot = it }
+        source.connect()
+        requests.clear()
+        val tableCount = com.suzukiscope.core.ecu.EcuTables.SNAPSHOT_TABLES.size
+        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * tableCount - 1) { source.endCycle() }
+        assertEquals(null, snapshot)
+        assertEquals(tableCount - 1, requests.count { it.startsWith("21") })
+        source.endCycle()
+        assertEquals(tableCount, snapshot?.tables?.size)
+        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * 2) { source.endCycle() }
+        assertEquals(tableCount, requests.count { it.startsWith("21") })
+    }
+
+    private fun String.hexBytes() = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+
     private fun obdField(id: String, pids: List<Int>, decode: DecodeSpec, fallback: FieldFallback? = null) = FieldDefinition(
         id = id,
         label = id,

@@ -336,8 +336,10 @@ class DashboardViewModel(
         val wasRunning = pollJob != null
         stop()
         (source as? Elm327LiveDataSource)?.stopKeepAlive()
+        (source as? Elm327LiveDataSource)?.onBackgroundSnapshot = null
         source = newSource
         (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
+        (newSource as? Elm327LiveDataSource)?.onBackgroundSnapshot = ::onBackgroundSnapshot
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
@@ -527,9 +529,45 @@ class DashboardViewModel(
 
     /** Pauses polling, reads every known engine table and saves them to a dated file. */
     suspend fun saveEcuSnapshot() = withPollingPaused("ECU snapshot") { liveSource, progress ->
+        val snapshot = liveSource.readEcuSnapshot(progress)
+        val file = saveSnapshotFile(snapshot)
+        rememberSnapshot(snapshot)
+        "ECU snapshot saved as $file in Documents/SuzukiScope"
+    }
+
+    // Engine ECU tables from the latest snapshot (manual or background), kept across restarts via [ecuTablesSink].
+    private val _ecuTables = MutableStateFlow<Map<Int, ByteArray>>(emptyMap())
+    val ecuTables: StateFlow<Map<Int, ByteArray>> = _ecuTables.asStateFlow()
+    var ecuTablesSink: ((String) -> Unit)? = null
+
+    fun loadEcuTables(text: String) {
+        _ecuTables.value = com.suzukiscope.core.ecu.EcuTables.fromText(text)
+    }
+
+    private fun saveSnapshotFile(snapshot: com.suzukiscope.core.session.EcuSnapshot): String {
         val id = newSessionId()
-        exportSink(listOf(ExportFile("pj-suzukiscope-ecu-snapshot-$id.txt", "Snapshot $id\n" + liveSource.readEcuSnapshot(progress))))
-        "ECU snapshot saved as pj-suzukiscope-ecu-snapshot-$id.txt in Documents/SuzukiScope"
+        val name = "pj-suzukiscope-ecu-snapshot-$id.txt"
+        exportSink(listOf(ExportFile(name, "Snapshot $id\n" + snapshot.text)))
+        return name
+    }
+
+    private fun rememberSnapshot(snapshot: com.suzukiscope.core.session.EcuSnapshot) {
+        // Keep earlier tables that failed this time, so one timeout doesn't blank a value.
+        val merged = _ecuTables.value + snapshot.tables
+        _ecuTables.value = merged
+        ecuTablesSink?.invoke(com.suzukiscope.core.ecu.EcuTables.toText(merged))
+    }
+
+    // Background snapshots are only saved as a file when stored data changed since the last one.
+    private fun onBackgroundSnapshot(snapshot: com.suzukiscope.core.session.EcuSnapshot) {
+        val changed = com.suzukiscope.core.ecu.EcuTables.differs(_ecuTables.value, snapshot.tables)
+        if (changed) {
+            val file = saveSnapshotFile(snapshot)
+            logConnectionEvent("ECU snapshot: stored data changed, saved $file")
+        } else {
+            logConnectionEvent("ECU snapshot: no change in stored data, not saved")
+        }
+        rememberSnapshot(snapshot)
     }
 
     private suspend fun withPollingPaused(task: String, block: suspend (Elm327LiveDataSource, (String) -> Unit) -> String) {

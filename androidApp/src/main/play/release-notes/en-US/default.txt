@@ -1,5 +1,3 @@
-First alpha.
-- Gauges stay green unless a warning or critical limit is set
-- Snappier phone gauge needles
-- Connection logs and the test data option are now off by default (Settings > Diagnostics)
-- Diagnostics tools grouped in one collapsible section
+- Engine ECU snapshot read in the background after connecting, without pausing live data; saved only when stored data changes
+- Collapsible Vehicle row on the dashboard: odometer, engine starts, learned fuel trims, latest stored fault
+- Stored fault history (engine ECU) in the Fault codes tab

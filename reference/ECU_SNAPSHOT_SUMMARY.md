@@ -1,7 +1,8 @@
 # Engine ECU snapshot summary (Suzuki, Bosch MED17)
 
-Decoded from the `21 xx` table probe and ECU snapshots taken on 2026-11-09 (app 1.5.51–1.5.53).
-Values marked **(guess)** are best estimates from patterns, not confirmed definitions.
+Decoded from the `21 xx` table probe and ECU snapshots taken on 2026-11-09 and 2026-11-10 (app 1.5.51–1.6.0-alpha).
+Each value is marked **Known** (confirmed against the car), **Suspected** (strong pattern, not yet confirmed) or
+**Unknown**.
 
 ## ECU identity (`21 D0`)
 
@@ -9,7 +10,7 @@ Values marked **(guess)** are best estimates from patterns, not confirmed defini
 |---|---|
 | Text | `Hattori` · `Bosch.GS_248_0167.SwitchOver.MEDC17.V001` · `APPL` |
 | Meaning | Bosch MED17 petrol DI engine ECU, software build GS_248_0167 (`APPL` = application area) |
-| Trailing bytes | `0C 41 00 04 05 16 40 10 0F 35 08 00 10 01` (unknown; possibly build/date data) |
+| Trailing bytes | `0C 41 00 04 05 16 40 10 0F 35 08 00 10 01` (unknown). `05 16` could be May 2016; the car was bought new in 2019, so if it is a date it is more likely the ECU software or calibration date than the car's build date |
 
 ## Snapshots taken
 
@@ -20,14 +21,51 @@ Values marked **(guess)** are best estimates from patterns, not confirmed defini
 | 14:25:09 | Snapshot | Idle | `21 40` timed out |
 | 14:25:40 | Snapshot | Warm idle | |
 | 14:49:09 | Snapshot (1.5.53) | Idle after restart | Rows `2127`–`2146` in the file are shifted by one (reply mix-up); realigned below from the connection log |
+| 2026-11-10 16:09:54 | Snapshot (1.6.0-alpha) | Hot idle after driving | 94 km and 4 engine starts since 2026-11-09 14:49 |
 
-## Changes over time
+## Known
 
-| Table | 13:39 | 14:24–14:25 | 14:49 | Interpretation |
+| Item | Where | 11-09 13:39 | 11-09 14:25 | 11-09 14:49 | 11-10 16:09 | Notes |
+|---|---|---|---|---|---|---|
+| Engine start counter | `21 34` data bytes 0–1 | 6383 | 6384 | 6385 | **6389** | +1 per start; 4 starts on 11-10 confirmed by the driver |
+| Odometer (km) | `21 34` data bytes 14–16 (24-bit) | 51,198 | 51,198 | 51,198 | **51,292** | +94 km matches the distance driven |
+| Start log (last 100 starts, newest first) | `21 3A`, one byte per start (+`FF`) | `0D 0D 0D 0E…` | `0E 0D 0D 0D…` | `0E 0E 0D 0D…` | `0E 0F 0D 0E 0E 0E…` | One new entry per start, the rest shift along; values 13–15, one entry `8D` (13 + flag) |
+| Stored fault history (10 slots) | `21 40`–`21 49` | unchanged | unchanged | unchanged | unchanged | Codes, RPM, speed, load, voltage, pedal and baro decode sensibly (see below) |
+| ECU identity | `21 D0` | – | – | – | – | Bosch MED17, software GS_248_0167 |
+| Live trims (bank 1, three fields) | `21 00` offsets 19, 20, 23 | – | +4.7 / −6.3 / −1.6 % | 0 / −1.6 / −1.6 % | −3.1 / −2.3 / −5.5 % | Same fields SZ Viewer shows; which is short-term vs long-term is still open |
+
+## Suspected
+
+| Item | Where | Values over time | Why |
+|---|---|---|---|
+| Odometer stamp of the last update | `21 35` data bytes 13–15 | 51,196 → **51,291** | Always 1–2 km behind the odometer, so it records when this block was last saved |
+| Learned (long-term) fuel trims | `21 35` data bytes 17–20 as pairs | (0 %, **+8.6 %**), (0 %, +3.9 %) → (0 %, **+6.3 %**), (0 %, +3.9 %) | `0x80`-centred like the trim fields; the same "0 % + learned value" pairs appear in every fault record; the first value adapted while driving |
+| `21 35` carries the last recorded fault (**P0504**) | `21 35` data bytes 0–3 `01 05 04 20` | unchanged | Code bytes in the same format as the fault history. P0504 is **not** active (it would light a warning on the dash), so the moving odometer stamp most likely marks when the block's learned trims were last saved, not a new detection |
+| Fault event records with odometer stamps | `21 30`, `21 31` | static | Record 1: P0504 at **50,452 km** (also `48,982`); record 2: no code at **50,754 km** (also `48,983`); trims (0 %, +3.9 %), (0 %, +3.1 %) and (0 %, +4.7 %), (0 %, +4.7 %) |
+| Throttle / pedal adaptation | `21 27` | static | 16-bit values incl. 3,483 / 3,577 (mV-like) and repeated −98 / −183 pairs |
+| Immobiliser / security data | `21 28` | static | High-entropy block; keep private |
+| Coding / variant data | `21 3C` | static | Mostly `FF` with `02` and `54` |
+
+## Unknown – values to watch
+
+| Item | Where | 11-09 | 11-10 | Ideas |
 |---|---|---|---|---|
-| `21 34` bytes 0–1 | `18EF` = **6383** | `18F0` = **6384** | `18F1` = **6385** | **Engine start / ignition counter** – +1 on each of the three starts today |
-| `21 3A` | variant A | variant B | variant C | Per-cell counters that change between engine runs (guess: knock/misfire or adaptation cells) |
-| Everything else (except `21 00`) | – | identical | identical | Static stored data |
+| 24-bit value A | `21 34` data bytes 2–4 | 137,185 | 137,185 | Static over 94 km, so not a running total. Pairs with B (about 1.9 : 1), like C/D: possibly totals saved at two past events (service resets?) such as fuel used and engine hours |
+| 24-bit value B | `21 34` data bytes 5–7 | 71,607 | 71,607 | If minutes: 1,193 h, about 43 km/h average – plausible as engine hours at an event |
+| 24-bit value C | `21 34` data bytes 8–10 | 136,927 | 136,927 | Second record of the same kind as A (258 lower) |
+| 24-bit value D | `21 34` data bytes 11–13 | 71,386 | 71,386 | Second record of the same kind as B (221 lower) |
+| `21 35` bytes 21–24 | `21 35` | 180, 95, 138, 98 | 188, 134, 138, 99 | Changed with driving; could be trip or adaptation values (e.g. average fuel economy, idle air learning) |
+| Floats | `21 32`, `21 33`, `21 36`, `21 3D` | 2,693.6 · 2,809.2 · 909.8 · 894.9 | same | Two pairs; trailing bytes 59 · 59 · 75 · 116. Static: calibration or learned limits |
+| `21 30`/`21 31` bytes 2–3, 6–7, 13, 24–25 | `21 30`, `21 31` | 32,000 / 39,168; 25,993 / 32,139; 123 / 122; 25,037 / 26,047 | same | Environment data at the event |
+| Start log values 13–15 | `21 3A` | – | latest starts 14, 15, 13, 14, 14 | Possibly voltage after start or a crank count; note cold vs warm starts to test |
+
+On fuel economy and G-force logs: the engine ECU has no accelerometer, so G readings are unlikely to live here. The
+dash does have a G-force screen, so the data exists on the car: most likely the ABS/ESP module's yaw-rate and
+lateral/longitudinal acceleration sensors, shared over CAN with the cluster. Probing the ABS/ESP module's tables is
+the next place to look. Trip
+fuel economy is normally calculated by the instrument cluster, but the ECU does count injected fuel, so a fuel total
+could be one of the unknown values. A distance-and-fuel test (note the cluster's trip average before and after a drive)
+would show whether any of them move with fuel used.
 
 ## Live data (`21 00`) – decoded at idle
 
@@ -61,25 +99,26 @@ Notes:
 
 - Barometric 85 kPa means about 1,500 m altitude, which fits the Gauteng area.
 - The idle RPM drops from about 1,295 to about 780 once warm; the ECU's target idle follows the same step.
+- 2026-11-10 hot idle: oil 98 °C, coolant 91 °C, intake 42 °C, fuel rail 16.8 MPa, fuel level 41 %, air conditioning on,
+  EVAP purge 6.7 %, battery 13.6 V / 41 °C.
 
-## Stored tables – best-guess decoding
+## Fault code history
 
-| Table | Size | Best guess | Evidence |
-|---|---|---|---|
-| `21 27` | 67 B | Adaptation values (16-bit) **(guess)** | Signed 16-bit numbers such as `FF9E` (−98), `FF49` (−183); a repeated `23CC FF9E FF49` group |
-| `21 28` | 67 B | Security / immobiliser or calibration data **(guess)** | Mostly `FF` with a block of high-entropy bytes; treat as private and don't share publicly |
-| `21 30`, `21 31` | 39 B each | **Long-term fuel trim adaptation**, two records/banks **(guess)** | First byte is 01/02; many bytes centre on `0x80` (0 %): `85` = +3.9 %, `7B` = −3.9 %, `86` = +4.7 % |
-| `21 32` | 5 B | `45 28 58 07` + `3B` | As a 32-bit float: **2693.6** (meaning unknown) |
-| `21 33` | 5 B | `45 2F 93 07` + `3B` | As a float: **2809.2** |
-| `21 36` | 5 B | `44 63 74 02` + `4B` | As a float: **909.8** |
-| `21 3D` | 5 B | `44 5F B8 01` + `74` | As a float: **894.9** |
-| `21 34` | 18 B | **Start counter 6385** + three records `[16-bit][16-bit][byte][flag]` | Records: (6385, 535, 225, 1), (6071, 534, 223, 1), (5850, 199, 254, 0). The second number is the **odometer ÷ 100** (535 → 53,500 km, confirmed against the car at just over 53,000 km), so each record is an event tagged with start count and mileage |
-| `21 35` | 25 B | Adaptation values **(guess)** | `0x80`-centred bytes (`8B` = +8.6 %, `85` = +3.9 %) |
-| `21 3A` | 200 B | 100 per-cell counters/flags **(guess)** | Pairs of `0D`/`0E`/`0F` + `FF`; one cell `8D` (high bit set = flag); changes between engine runs |
-| `21 3C` | 25 B | Coding / variant data **(guess)** | Mostly `FF`, with `02` and `54` |
-| `21 40`–`21 49` | 67 B each | **DTC freeze-frame history (10 slots)** | Each starts with a valid OBD code and contains RPM, speed, load, battery voltage, pedal sensors and barometric pressure that all decode sensibly (see below) |
-| `21 A2` | 53 B | Empty buffer | All `FF` |
-| `21 D0` | 74 B | ECU software ID | ASCII text above |
+The ECU stores no dates. The only time references are odometer stamps on three records (`21 30`, `21 31`, `21 35`);
+the ten freeze-frame slots (`21 40`–`21 49`) have none, so their order is the slot order, which is probably but
+not certainly oldest first. Clearing codes did not erase these slots.
+
+| Order | Code | Meaning | Odometer | Source |
+|---|---|---|---|---|
+| – | P0504 | Brake switch A/B correlation | 48,982 → 50,452 km (suspected first / last seen) | `21 30` |
+| – | (no code) | – | 48,983 → 50,754 km | `21 31` |
+| latest | P0504 | Brake switch A/B correlation | **51,291 km** stamp (moved on the 11-10 drive; see Suspected) | `21 35` |
+| slot 0 | P0575 | Cruise control input circuit | – | `21 40` |
+| slot 1 | P0504 | Brake switch A/B correlation | – | `21 41` |
+| slot 2 | P0132 | O2 sensor circuit high voltage (B1S1) | – | `21 42` |
+| slots 3–5 | P0504 ×3 | Brake switch A/B correlation | – | `21 43`–`21 45` |
+| slot 6 | P0039 | Turbo bypass valve control circuit range/performance | – | `21 46` |
+| slots 7–9 | P0504 ×3 | Brake switch A/B correlation | – | `21 47`–`21 49` |
 
 ## Fault history (`21 40`–`21 49`) – decoded freeze frames
 
@@ -106,16 +145,16 @@ Observations:
   cruising with the accelerator released, which is when the brake would be pressed.
 - **P0039** was logged under 81 % load with the pedal pressed, which is consistent with a boost event.
 - **P0132** and **P0575** appear once each.
-- These are stored history entries, not necessarily active faults; the app's DTC screen shows the current codes.
-
-## Fuel trims
-
-- **Live trims** are already in `21 00` and in the app's field list: the three "Bank 1" fields (offsets 19, 20, 23;
-  0.78125 %/bit, `0x80` = 0 %). SZ Viewer shows these same fields. Bank 2 reads `FF` (single-bank engine).
-  At idle they read 0 %, −1.6 %, −1.6 % (14:49) and +4.7 %, −6.3 %, −1.6 % (14:25:40).
-- **Learned trim cells** (`21 30`, `21 31`, `21 35`) are not in SZ Viewer's catalogue; decoding them here is new.
+- These are stored history entries, not active faults: P0504 is not currently failing, as it would show a warning on
+  the dash.
+- The car's known long-running issue is a light sensor voltage too low fault. It does not appear in the engine ECU's
+  history, so it is presumably stored by another module (body control or instrument cluster).
 
 ## Open questions
 
-- Whether the floats in `21 32`/`21 33`/`21 36`/`21 3D` are learned values (they did not change today).
-- Which of the three "Bank 1" live trims is short-term vs long-term (watch them during a drive).
+- Which of the three "Bank 1" live trims is short-term and which long-term: record a drive with all three enabled
+  and compare with the learned pairs in `21 35` (+6.3 % / +3.9 %).
+- What the start log values 13–15 mean: note cold and warm starts against new entries.
+- Where the dash's G-force data comes from: probe the ABS/ESP module's `21 xx` tables.
+- Which module stores the light sensor voltage fault, and whether its history has odometer stamps.
+- What the four static 24-bit values in `21 34` and the changing bytes 21–24 of `21 35` represent.

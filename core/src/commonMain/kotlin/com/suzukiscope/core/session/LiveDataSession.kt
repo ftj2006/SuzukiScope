@@ -17,6 +17,9 @@ interface LiveDataSource {
      */
     fun beginCycle(fields: List<FieldDefinition>) {}
 
+    /** Called after each pass, before the gap to the next one; lets a source do low-priority work. No-op by default. */
+    suspend fun endCycle() {}
+
     /** False for fields this source can't read right now (e.g. they need the other bus protocol); those are skipped. */
     fun canPoll(field: FieldDefinition): Boolean = true
 }
@@ -54,6 +57,14 @@ class LiveDataSession(
                     val failureCount = (failures[field.id] ?: 0).coerceAtMost(5)
                     failures[field.id] = failureCount + 1
                     retryAt[field.id] = currentTimeMillis() + 250L * (1L shl failureCount)
+                }
+            }
+            if (due.isNotEmpty()) {
+                try {
+                    source.endCycle()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
                 }
             }
             // With nothing to poll, a zero interval would spin.

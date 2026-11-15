@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.suzukiscope.core.ecu.EcuTables
 import kotlinx.coroutines.launch
 
 /**
@@ -37,6 +38,7 @@ fun DtcScreen(
     viewModel: DtcViewModel,
     moduleOptions: List<ModuleOption>,
     modifier: Modifier = Modifier,
+    faultHistory: List<EcuTables.FaultEntry> = emptyList(),
 ) {
     val scope = rememberCoroutineScope()
     val codes by viewModel.codes.collectAsState()
@@ -92,6 +94,21 @@ fun DtcScreen(
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     Text("${code.code}" + (code.statusByte?.let { " (status 0x%02X)".format(it) } ?: ""))
                     Text(code.description ?: "No description available", style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (faultHistory.isNotEmpty()) {
+                item {
+                    Text(
+                        "Stored fault history (engine ECU, from the last snapshot)",
+                        style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+                    )
+                }
+                items(faultHistory) { entry ->
+                    Text(
+                        entry.code + (entry.odometerKm?.let { " at %,d km".format(it) } ?: "") + "  (table ${entry.source})",
+                        modifier = Modifier.padding(vertical = 2.dp),
+                    )
                 }
             }
         }

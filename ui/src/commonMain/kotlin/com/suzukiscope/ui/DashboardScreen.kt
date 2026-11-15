@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
@@ -81,6 +83,8 @@ fun DashboardScreen(
                 androidx.compose.material3.Icon(Icons.Outlined.FileDownload, contentDescription = "Export")
             }
         }
+        val ecuTables by viewModel.ecuTables.collectAsState()
+        VehicleRow(com.suzukiscope.core.ecu.EcuTables.summarise(ecuTables))
         val enabledFields = fields.filter { it.enabled }
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
             // Spread gauges evenly over the rows they need (6 across a 5-wide screen -> 3 + 3, not 5 + 1).
@@ -106,4 +110,35 @@ fun DashboardScreen(
         }
     }
 
+}
+
+/** Collapsible line of values the engine ECU stores (from the last snapshot); hidden until one has been read. */
+@Composable
+private fun VehicleRow(summary: com.suzukiscope.core.ecu.EcuTables.VehicleSummary) {
+    if (summary.odometerKm == null && summary.engineStarts == null && summary.learnedTrims.isEmpty() && summary.latestFault == null) return
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    Column(
+        Modifier.fillMaxWidth()
+            .clickable { expanded = !expanded }
+            .padding(vertical = 4.dp),
+    ) {
+        Text(
+            (if (expanded) "\u25BE " else "\u25B8 ") + "Vehicle" +
+                (summary.odometerKm?.let { ": %,d km".format(it) } ?: ""),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        if (expanded) {
+            val style = MaterialTheme.typography.bodySmall
+            summary.engineStarts?.let { Text("Engine starts: %,d".format(it), style = style) }
+            if (summary.learnedTrims.isNotEmpty()) {
+                Text("Learned fuel trims: " + summary.learnedTrims.joinToString(" / ") { "%+.1f%%".format(it) }, style = style)
+            }
+            Text(
+                "Latest stored fault: " + (summary.latestFault?.let { f ->
+                    f.code + (f.odometerKm?.let { " at %,d km".format(it) } ?: "")
+                } ?: "none"),
+                style = style,
+            )
+        }
+    }
 }

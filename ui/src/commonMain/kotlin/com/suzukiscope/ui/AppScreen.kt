@@ -36,6 +36,7 @@ fun AppScreen(
 ) {
     var tab by remember { mutableStateOf(0) }
     val fields by dashboardViewModel.fields.collectAsState()
+    val ecuTables by dashboardViewModel.ecuTables.collectAsState()
 
     // The full 588-field extraction catalog loads in (disabled by default) the first time the
     // Configure fields tab is opened, instead of requiring a manual button press.
@@ -70,7 +71,12 @@ fun AppScreen(
             0 -> DashboardScreen(dashboardViewModel, onExportCsv, connectionBar, Modifier.fillMaxSize())
             1 -> HistoryScreen(dashboardViewModel, Modifier.fillMaxSize())
             2 -> ConfigScreen(dashboardViewModel, Modifier.fillMaxSize(), onShareLogs)
-            else -> DtcScreen(dtcViewModel, moduleOptionsFrom(fields), Modifier.fillMaxSize())
+            else -> DtcScreen(
+                dtcViewModel,
+                moduleOptionsFrom(fields),
+                Modifier.fillMaxSize(),
+                faultHistory = com.suzukiscope.core.ecu.EcuTables.faultHistory(ecuTables),
+            )
         }
     }
 }
