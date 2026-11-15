@@ -312,8 +312,6 @@ class DashboardViewModel(
         const val WIDEN_AFTER_READINGS = 3
         const val MIN_SPAN_FRACTION = 0.2
         const val STALE_MS = 2000L
-        const val QUIET_BOOST_BAR = 0.1
-        const val QUIET_RPM = 2500.0
     }
 
     fun stop() {
@@ -354,11 +352,8 @@ class DashboardViewModel(
         val wasRunning = pollJob != null
         stop()
         (source as? Elm327LiveDataSource)?.stopKeepAlive()
-        (source as? Elm327LiveDataSource)?.onBackgroundSnapshot = null
         source = newSource
         (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
-        (newSource as? Elm327LiveDataSource)?.onBackgroundSnapshot = ::onBackgroundSnapshot
-        (newSource as? Elm327LiveDataSource)?.backgroundReadAllowed = ::engineQuiet
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
@@ -546,7 +541,7 @@ class DashboardViewModel(
         "ECU snapshot saved as $file in Documents/SuzukiScope"
     }
 
-    // Engine ECU tables from the latest snapshot (manual or background), kept across restarts via [ecuTablesSink].
+    // Engine ECU tables from the latest snapshot, kept across restarts via [ecuTablesSink].
     private val _ecuTables = MutableStateFlow<Map<Int, ByteArray>>(emptyMap())
     val ecuTables: StateFlow<Map<Int, ByteArray>> = _ecuTables.asStateFlow()
     var ecuTablesSink: ((String) -> Unit)? = null
@@ -583,24 +578,6 @@ class DashboardViewModel(
         val merged = _ecuTables.value + snapshot.tables
         _ecuTables.value = merged
         ecuTablesSink?.invoke(com.suzukiscope.core.ecu.EcuTables.toText(merged))
-    }
-
-    // Background snapshot reads add ~150 ms to a cycle, so they wait for light load; unknown values count as quiet.
-    private fun engineQuiet(): Boolean {
-        val values = _values.value
-        return (values["engine.boost_relative"] ?: 0.0) < QUIET_BOOST_BAR && (values["engine.rpm"] ?: 0.0) < QUIET_RPM
-    }
-
-    // Background snapshots are only saved as a file when stored data changed since the last one.
-    private fun onBackgroundSnapshot(snapshot: com.suzukiscope.core.session.EcuSnapshot) {
-        val changed = com.suzukiscope.core.ecu.EcuTables.differs(_ecuTables.value, snapshot.tables)
-        if (changed) {
-            val file = saveSnapshotFile(snapshot)
-            logConnectionEvent("ECU snapshot: stored data changed, saved $file")
-        } else {
-            logConnectionEvent("ECU snapshot: no change in stored data, not saved")
-        }
-        rememberSnapshot(snapshot)
     }
 
     /**

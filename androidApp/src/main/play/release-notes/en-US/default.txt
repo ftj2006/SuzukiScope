@@ -1,5 +1,4 @@
-- Fault codes read the way SZ Viewer does (18 00 per group, UDS fallback); clear handles "busy" replies
-- Other CAN modules now listened to on their real reply IDs (ABS, BCM, PS, TPMS, AT...)
+- ECU snapshot no longer runs automatically after connecting; use Settings > Diagnostics > Save snapshot
+- Snapshot includes ECU identification (part number, VIN)
+- Fault codes read the way SZ Viewer does; other CAN modules listened to on their real reply IDs
 - 379 new catalogue fields, incl. on/off flags (fans, fuel pump, switches, cruise)
-- ECU snapshot now includes ECU identification (part number, VIN)
-- Fixed a log crash

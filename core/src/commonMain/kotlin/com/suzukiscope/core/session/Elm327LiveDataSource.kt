@@ -112,8 +112,6 @@ class Elm327LiveDataSource(
         // No ATAT1: on Suzuki CAN adaptive timing cuts off the tail of slow multi-frame replies.
         if (protocol == Elm327Protocol.CAN_11BIT_500K) {
             querySupportedPids()
-            backgroundResults = LinkedHashMap()
-            cyclesSinceBackgroundRead = 0
         }
     }
 
@@ -434,26 +432,6 @@ class Elm327LiveDataSource(
         return EcuSnapshot(snapshot.tables, snapshot.text + "\n\nECU %03X identification (KWP2000 service 1A)\n".format(ENGINE_ECU) + ident.joinToString("\n"))
     }
 
-    /** Called with each snapshot read gradually in the background after connecting (CAN only). */
-    var onBackgroundSnapshot: ((EcuSnapshot) -> Unit)? = null
-    /** Background table reads wait while this is false (e.g. under boost), so they never delay a peak. */
-    var backgroundReadAllowed: () -> Boolean = { true }
-    private var backgroundResults: LinkedHashMap<Int, Result<ByteArray>>? = null
-    private var cyclesSinceBackgroundRead = 0
-
-    // One table every few cycles: each such cycle is ~150 ms slower, but live data never pauses.
-    override suspend fun endCycle() {
-        val results = backgroundResults ?: return
-        if (++cyclesSinceBackgroundRead < BACKGROUND_SNAPSHOT_EVERY_CYCLES || !backgroundReadAllowed()) return
-        cyclesSinceBackgroundRead = 0
-        val id = EcuTables.SNAPSHOT_TABLES[results.size]
-        ensureCanHeader(ENGINE_ECU)
-        results[id] = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 800, checkReply = true) }
-        if (results.size == EcuTables.SNAPSHOT_TABLES.size) {
-            backgroundResults = null
-            onBackgroundSnapshot?.invoke(buildSnapshot(results))
-        }
-    }
 
     private fun buildSnapshot(results: Map<Int, Result<ByteArray>>): EcuSnapshot {
         val lines = results.map { (id, result) ->
@@ -513,7 +491,6 @@ class Elm327LiveDataSource(
         const val PERF_WINDOW_MS = 10_000L
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
-        const val BACKGROUND_SNAPSHOT_EVERY_CYCLES = 4
         const val CAN_TABLE_RETRY_MS = 50L
         const val KWP_RECOVERY_FAILURES = 6
         const val KWP_RECOVERY_GAP_MS = 5000L

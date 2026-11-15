@@ -155,43 +155,20 @@ class Elm327LiveDataSourceTest {
     }
 
     @Test
-    fun readsSnapshotInTheBackgroundOneTableEveryFewCycles() = runTest {
+    fun connectDoesNotReadEcuTables() = runTest {
         val requests = mutableListOf<String>()
-        val transport = LoopbackTransport { bytes ->
-            val cmd = bytes.decodeToString().trim()
-            requests += cmd
-            (if (cmd.startsWith("21")) "61" + cmd.substring(2) + "00" else "OK").plus("\r>").encodeToByteArray()
-        }
-        val source = Elm327LiveDataSource(transport, Elm327Protocol.CAN_11BIT_500K)
-        var snapshot: EcuSnapshot? = null
-        source.onBackgroundSnapshot = { snapshot = it }
+        val source = Elm327LiveDataSource(canAdapter(requests), Elm327Protocol.CAN_11BIT_500K)
         source.connect()
-        requests.clear()
-        val tableCount = com.suzukiscope.core.ecu.EcuTables.SNAPSHOT_TABLES.size
-        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * tableCount - 1) { source.endCycle() }
-        assertEquals(null, snapshot)
-        assertEquals(tableCount - 1, requests.count { it.startsWith("21") })
-        source.endCycle()
-        assertEquals(tableCount, snapshot?.tables?.size)
-        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * 2) { source.endCycle() }
-        assertEquals(tableCount, requests.count { it.startsWith("21") })
+        repeat(20) { source.endCycle() }
+        assertEquals(0, requests.count { it.startsWith("21") })
     }
 
     private fun String.hexBytes() = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     @Test
-    fun backgroundReadsWaitForLightLoadAndTableRetriesDoNotBackOff() = runTest {
-        val requests = mutableListOf<String>()
-        val source = Elm327LiveDataSource(canAdapter(requests), Elm327Protocol.CAN_11BIT_500K)
+    fun tableRetriesDoNotBackOff() = runTest {
+        val source = Elm327LiveDataSource(canAdapter(mutableListOf()), Elm327Protocol.CAN_11BIT_500K)
         source.connect()
-        var quiet = false
-        source.backgroundReadAllowed = { quiet }
-        requests.clear()
-        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * 3) { source.endCycle() }
-        assertEquals(0, requests.count { it.startsWith("21") })
-        quiet = true
-        source.endCycle()
-        assertEquals(1, requests.count { it.startsWith("21") })
 
         val table = FieldDefinition(
             id = "t",
