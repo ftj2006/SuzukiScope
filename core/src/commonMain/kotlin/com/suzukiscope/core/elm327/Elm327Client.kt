@@ -112,6 +112,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATCAF1")
         sendCommand("ATCFC1")
         sendCommand("ATFCSM0")
+        canTimingSet = false
     }
 
     /**
@@ -134,6 +135,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
 
     suspend fun initProtocol(protocol: Elm327Protocol) {
         sendCommand("ATTP${protocol.atSpValue}")
+        canTimingSet = false
     }
 
     /** ISO 14230/KWP: set the physical/functional target header ELM327 will use for the next request. */
@@ -145,15 +147,20 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         sendCommand("ATSH%03X".format(targetAddress and 0x7FF))
     }
 
+    // Flow-control data/mode and the reply timeout don't depend on the module, so they're sent once per init.
+    private var canTimingSet = false
+
     suspend fun configureCan(targetAddress: Int) {
         val requestId = targetAddress and 0x7FF
         sendCommand("ATSH%03X".format(requestId))
         sendCommand("ATCRA%03X".format(canResponseId(requestId)))
         sendCommand("ATFCSH%03X".format(requestId))
+        if (canTimingSet) return
         sendCommand("ATFCSD300000")
         sendCommand("ATFCSM1")
         // 64 ms end-of-reply wait; ATST08 (32 ms) gave no speed-up and more timeouts.
         sendCommand("ATST10")
+        canTimingSet = true
     }
 
     /**

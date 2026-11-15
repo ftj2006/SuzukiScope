@@ -381,8 +381,9 @@ class Elm327LiveDataSource(
         if (canConfiguration != target) {
             client.configureCan(target)
             canConfiguration = target
+        } else {
+            client.setCanHeader(target)
         }
-        client.setCanHeader(target)
         lastHeader = header
     }
 

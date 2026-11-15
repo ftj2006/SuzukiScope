@@ -1,2 +1,5 @@
-- Internal clean-up after removing the automatic ECU snapshot on connect
-- Tip: run Settings > Diagnostics > Test all fields to hide catalogue fields your car does not answer
+- Test all fields now pauses live data, so results are correct (run it again)
+- Switching between modules is much faster (3 adapter commands instead of 7)
+- Duplicate catalogue fields removed (same bytes as another field or a built-in gauge)
+- Catalogue fixes now reach fields already loaded
+- Camera/steering-switch fields use the right module address (0x778)

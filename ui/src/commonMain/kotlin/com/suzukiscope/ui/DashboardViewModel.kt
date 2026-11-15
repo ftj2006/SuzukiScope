@@ -498,17 +498,14 @@ class DashboardViewModel(
      * request needs the other protocol (CAN vs KWP) than the one currently connected can't be
      * tested right now, so they're left untouched rather than wrongly marked "no data".
      */
-    suspend fun probeAllFieldsForData() {
-        val liveSource = source as? Elm327LiveDataSource ?: run {
-            _fieldProbeStatus.value = "Connect to the real adapter first"
-            return
-        }
+    suspend fun probeAllFieldsForData() = withPollingPaused("Field test", requireCan = false) { liveSource, progress ->
         val candidates = registry.fields.filter { (it.request.responsePrefixBytes == 0) == (liveSource.protocol == Elm327Protocol.CAN_11BIT_500K) }
+        liveSource.resetBusState()
         liveSource.beginCycle(emptyList())
         var withData = 0
         var noData = 0
         for ((index, field) in candidates.withIndex()) {
-            _fieldProbeStatus.value = "Testing field ${index + 1}/${candidates.size}: ${field.label}"
+            progress("Testing field ${index + 1}/${candidates.size}: ${field.label}")
             val hasData = try {
                 liveSource.poll(field)
                 true
@@ -523,7 +520,7 @@ class DashboardViewModel(
         _fields.value = registry.fields
         persist()
         val skipped = registry.fields.size - candidates.size
-        _fieldProbeStatus.value = "Done: $withData with data, $noData with none" +
+        "Done: $withData with data, $noData with none" +
             (if (skipped > 0) " ($skipped skipped \u2014 need the other protocol connected)" else "")
     }
 
@@ -597,10 +594,14 @@ class DashboardViewModel(
         }
     }
 
-    private suspend fun withPollingPaused(task: String, block: suspend (Elm327LiveDataSource, (String) -> Unit) -> String) {
+    private suspend fun withPollingPaused(
+        task: String,
+        requireCan: Boolean = true,
+        block: suspend (Elm327LiveDataSource, (String) -> Unit) -> String,
+    ) {
         val liveSource = source as? Elm327LiveDataSource
-        if (liveSource == null || liveSource.protocol != Elm327Protocol.CAN_11BIT_500K) {
-            _fieldProbeStatus.value = "Connect to the real adapter on CAN first"
+        if (liveSource == null || (requireCan && liveSource.protocol != Elm327Protocol.CAN_11BIT_500K)) {
+            _fieldProbeStatus.value = if (requireCan) "Connect to the real adapter on CAN first" else "Connect to the real adapter first"
             return
         }
         val wasRunning = pollJob != null

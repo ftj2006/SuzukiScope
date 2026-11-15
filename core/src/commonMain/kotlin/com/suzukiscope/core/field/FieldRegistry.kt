@@ -62,15 +62,43 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
         _fields.putAll(reordered)
     }
 
-    /** Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
-     * existing ones pick up catalog label changes. */
+    /**
+     * Adds catalog entries not already present, without disturbing existing ones' enabled state/order;
+     * existing ones pick up catalog label/unit/request/decode changes. An entry reading the same bytes
+     * as a field listed before it is a duplicate and is left out, and unselected catalog fields that
+     * the catalog no longer has are dropped.
+     */
     fun mergeCatalog(catalog: List<FieldDefinition>) {
+        val catalogIds = catalog.mapTo(HashSet()) { it.id }
+        _fields.values.removeAll { isCatalogId(it.id) && it.id !in catalogIds && !it.enabled }
         for (field in catalog) {
             val existing = _fields[field.id]
-            _fields[field.id] = existing?.copy(label = field.label) ?: field
+            _fields[field.id] = existing?.copy(label = field.label, unit = field.unit, request = field.request, decode = field.decode)
+                ?: field
             if (field.id !in defaultRanges) defaultRanges[field.id] = field.gaugeMin to field.gaugeMax
         }
+        val removable = { field: FieldDefinition -> isCatalogId(field.id) && !field.enabled }
+        val seen = _fields.values.filterNot(removable).flatMapTo(HashSet()) { dataKeys(it) }
+        _fields.values.removeAll { field ->
+            if (!removable(field)) return@removeAll false
+            val keys = dataKeys(field)
+            val duplicate = keys.any { it in seen }
+            if (!duplicate) seen.addAll(keys)
+            duplicate
+        }
     }
+
+    // Built-in ids are "<module>.<name>"; catalog ids are "<module>.<bus>.<table>.<name>".
+    private fun isCatalogId(id: String) = id.count { it == '.' } >= 3
+
+    private fun dataKeys(field: FieldDefinition): List<Any> =
+        listOfNotNull(field.request to field.decode, field.fallback?.let { it.request to it.decode })
+            .map { (request, decode) ->
+                listOf(
+                    request.targetAddress, request.isFunctionalAddress, request.mode, request.params,
+                    decode.skipBytes, decode.byteLength, decode.bit, decode.bitCount, decode.subtractSkipBytes,
+                )
+            }
 
     /** Moves [id] one place earlier/later in display order (delta = -1 up, +1 down). */
     fun move(id: String, delta: Int) {
