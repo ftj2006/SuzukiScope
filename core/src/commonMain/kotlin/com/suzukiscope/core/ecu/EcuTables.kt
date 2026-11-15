@@ -51,27 +51,6 @@ object EcuTables {
         else -> ""
     }
 
-    /**
-     * The table as compared between snapshots, or null to ignore it: live data, the per-start log and
-     * the start counter/odometer change on every drive and would make every snapshot look new.
-     */
-    fun comparable(id: Int, bytes: ByteArray): String? {
-        val masked = bytes.copyOf()
-        when (id) {
-            0x00, 0x3A -> return null
-            0x34 -> listOf(2, 3, 16, 17, 18).filter { it < masked.size }.forEach { masked[it] = 0 }
-            0x35 -> listOf(15, 16, 17).filter { it < masked.size }.forEach { masked[it] = 0 }
-        }
-        return masked.joinToString("") { "%02X".format(it) }
-    }
-
-    /** True when any table read in both snapshots differs (ignoring the values [comparable] masks). */
-    fun differs(previous: Map<Int, ByteArray>, current: Map<Int, ByteArray>): Boolean =
-        previous.isEmpty() || current.any { (id, bytes) ->
-            val before = previous[id] ?: return@any false
-            comparable(id, bytes) != comparable(id, before)
-        }
-
     fun summarise(tables: Map<Int, ByteArray>): VehicleSummary {
         val t34 = tables[0x34]?.takeIf { it.size >= 19 }
         val t35 = tables[0x35]?.takeIf { it.size >= 23 }

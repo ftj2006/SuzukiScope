@@ -146,12 +146,6 @@ class Elm327LiveDataSourceTest {
             com.suzukiscope.core.ecu.EcuTables.faultHistory(tables).map { it.source to it.odometerKm },
         )
         assertEquals(tables.keys, com.suzukiscope.core.ecu.EcuTables.fromText(com.suzukiscope.core.ecu.EcuTables.toText(tables)).keys)
-
-        // A new drive bumps the start counter and odometer, which alone is not a change worth saving.
-        val nextDrive = tables + (0x34 to "613418F60217E10117B70216DF0116DA00C86000".hexBytes())
-        assertEquals(false, com.suzukiscope.core.ecu.EcuTables.differs(tables, nextDrive))
-        val newFault = tables + (0x41 to "61410113000000438087FFFF55".hexBytes())
-        assertEquals(true, com.suzukiscope.core.ecu.EcuTables.differs(tables, newFault))
     }
 
     @Test
@@ -162,8 +156,6 @@ class Elm327LiveDataSourceTest {
         repeat(20) { source.endCycle() }
         assertEquals(0, requests.count { it.startsWith("21") })
     }
-
-    private fun String.hexBytes() = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     @Test
     fun tableRetriesDoNotBackOff() = runTest {
