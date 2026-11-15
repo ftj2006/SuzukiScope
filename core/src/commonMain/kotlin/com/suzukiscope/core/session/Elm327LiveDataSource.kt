@@ -20,25 +20,6 @@ import kotlinx.coroutines.launch
 /** Engine ECU tables read in one pass: [tables] holds the successful replies, [text] the annotated file contents. */
 class EcuSnapshot(val tables: Map<Int, ByteArray>, val text: String)
 
-/** Fits ms = fixed + perByte x bytes over (bytes, median ms) points and says which part dominates a 208-byte 21 00 reply. */
-internal fun replyTimingVerdict(points: List<Pair<Int, Long>>): String {
-    if (points.size < 2 || points.map { it.first }.distinct().size < 2) return "not enough tables answered to compare"
-    val n = points.size.toDouble()
-    val meanX = points.sumOf { it.first.toDouble() } / n
-    val meanY = points.sumOf { it.second.toDouble() } / n
-    val perByte = points.sumOf { (it.first - meanX) * (it.second - meanY) } / points.sumOf { (it.first - meanX) * (it.first - meanX) }
-    val fixed = meanY - perByte * meanX
-    val sizePart = (perByte * 208).coerceAtLeast(0.0)
-    val share = sizePart / (fixed.coerceAtLeast(0.0) + sizePart).coerceAtLeast(1.0)
-    val conclusion = when {
-        share >= 0.5 -> "mostly transfer: a faster adapter (e.g. OBDLink MX+) should cut this noticeably"
-        share < 0.25 -> "mostly ECU/turnaround: a faster adapter would help little"
-        else -> "mixed: a faster adapter would help somewhat"
-    }
-    return "%.0f ms fixed + %.2f ms/byte; 21 00 (208 bytes) = %.0f ms, %.0f%% size-dependent; %s"
-        .format(fixed, perByte, fixed + sizePart, share * 100, conclusion)
-}
-
 /**
  * Real hardware [LiveDataSource]: talks to an ELM327 adapter over any [Transport]
  * (Bluetooth SPP, Wi-Fi, serial) using the diagnostic session parameters in each
@@ -104,6 +85,11 @@ class Elm327LiveDataSource(
 
     // The adapter is initialised for one bus only.
     override fun canPoll(field: FieldDefinition): Boolean = field.busProtocol == protocol
+
+    // On CAN, 21 xx is the only source of live data: waiting longer after a failure only adds to the gap.
+    override fun retryDelayMs(field: FieldDefinition, failures: Int): Long =
+        if (protocol == Elm327Protocol.CAN_11BIT_500K && resolve(field).request.mode == 0x21) CAN_TABLE_RETRY_MS
+        else super.retryDelayMs(field, failures)
 
     suspend fun connect() {
         ioLog.append(IoDirection.SENT, "opening transport ${transport.name}")
@@ -300,8 +286,8 @@ class Elm327LiveDataSource(
         val cacheKey = "${field.request.targetAddress}:${field.request.isFunctionalAddress}:" +
             requestPayload.joinToString("") { "%02X".format(it) }
         val rawAnswer = (requestCache[cacheKey] ?: run {
-            // The 210-byte 21 00 reply sometimes takes 500-800 ms; discarding it froze the gauges for longer.
-            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 800 else 1000) }
+            // Under load the 210-byte 21 00 reply can take 500-900 ms; a dropped reply loses the peak it carried.
+            val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 1500 else 1000) }
             requestCache[cacheKey] = result
             result
         }).getOrThrow()
@@ -316,70 +302,66 @@ class Elm327LiveDataSource(
     }
 
     /**
-     * Times small and large tables in turn to split each reply into a fixed part (ECU, adapter turnaround)
-     * and a part that grows with size (adapter-to-phone transfer), then repeats with a shorter end-of-reply
-     * wait (ATST08) and with the "expect 1 reply" digit to see whether this adapter can answer sooner
-     * without cutting replies short.
+     * Read-only experiments for faster live data: whether the ECU answers service 22 (values by ID) or
+     * 23 (memory reads), and whether this adapter copes with no gap between requests or adaptive timing.
      */
-    suspend fun timeTableReplies(onProgress: (String) -> Unit): String {
-        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Reply timing needs a CAN connection" }
+    suspend fun runSpeedProbes(onProgress: (String) -> Unit): String {
+        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Speed probes need a CAN connection" }
         ensureCanHeader(ENGINE_ECU)
-        class Pass(val name: String, val timeout: String, val responseCount: Int?) {
-            val sizes = HashMap<Int, Int>()
-            val times = HashMap<Int, MutableList<Long>>()
+        val results = ArrayList<String>()
+
+        onProgress("Speed probes: services 22 and 23")
+        // An NRC of 11 means the service is unsupported; 31 (out of range) or 33 (security) means it exists.
+        val serviceRequests = listOf(
+            "22 F1 90" to byteArrayOf(0x22, 0xF1.toByte(), 0x90.toByte()),
+            "22 01 00" to byteArrayOf(0x22, 0x01, 0x00),
+            "23 000000 x4" to byteArrayOf(0x23, 0x00, 0x00, 0x00, 0x04),
+            "23 800000 x4" to byteArrayOf(0x23, 0x80.toByte(), 0x00, 0x00, 0x04),
+        )
+        for ((name, payload) in serviceRequests) {
+            val start = currentTimeMillis()
+            val reply = runCatching { client.requestHex(payload, 1500) }
+            val ms = currentTimeMillis() - start
+            val answer = reply.getOrNull()
+            results += "$name: " + when {
+                answer == null -> "no reply (${reply.exceptionOrNull()?.let(::describeError)})"
+                answer.size >= 3 && answer[0] == 0x7F.toByte() -> "refused, NRC %02X".format(answer[2].toInt() and 0xFF)
+                else -> "ANSWERED in $ms ms: " + answer.joinToString("") { "%02X".format(it) }
+            }
+            delay(50)
+        }
+
+        suspend fun timeLiveTable(label: String, gapMs: Long): String {
+            val times = ArrayList<Long>()
             var failed = 0
-            fun medians() = times.mapValues { (_, list) -> list.sorted()[list.size / 2] }
-        }
-        val passes = listOf(Pass("normal", "ATST10", null), Pass("ATST08", "ATST08", null), Pass("expect 1 reply", "ATST10", 1))
-        for (round in 1..TIMING_ROUNDS) {
-            onProgress("Timing replies, round $round/$TIMING_ROUNDS")
-            for (pass in passes) {
-                runCatching { client.sendCommand(pass.timeout) }
-                for (id in TIMING_TABLES) {
-                    if (client.transportBroken) break
-                    val start = currentTimeMillis()
-                    val reply = runCatching {
-                        client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true, responseCount = pass.responseCount)
-                    }.getOrNull()
-                    val ms = currentTimeMillis() - start
-                    if (reply != null && reply.size >= 2 && reply[0] == 0x61.toByte()) {
-                        pass.sizes[id] = reply.size - 2
-                        pass.times.getOrPut(id) { ArrayList() } += ms
-                    } else {
-                        pass.failed++
-                    }
-                    delay(50)
+            var cutShort = 0
+            val passStart = currentTimeMillis()
+            repeat(SPEED_PROBE_REQUESTS) { index ->
+                // Per request, so a slow pass doesn't look like a stall to the reconnect watchdog.
+                onProgress("Speed probes: $label ${index + 1}/$SPEED_PROBE_REQUESTS")
+                val start = currentTimeMillis()
+                val reply = runCatching { client.requestHex(byteArrayOf(0x21, 0x00), 1500, checkReply = true) }.getOrNull()
+                when {
+                    reply == null -> failed++
+                    reply.size < LIVE_TABLE_BYTES -> cutShort++
+                    else -> times += currentTimeMillis() - start
                 }
+                if (gapMs > 0) delay(gapMs)
             }
+            val perUpdate = (currentTimeMillis() - passStart) / SPEED_PROBE_REQUESTS
+            val median = times.sorted().getOrNull(times.size / 2)
+            return "$label: reply median ${median ?: "-"} ms, %d ms per update, %d failed, %d cut short"
+                .format(perUpdate, failed, cutShort)
         }
-        runCatching { client.sendCommand("ATST10") }
-        for (pass in passes) {
-            val medians = pass.medians()
-            for (id in TIMING_TABLES) {
-                val list = pass.times[id] ?: continue
-                ioLog.append(
-                    IoDirection.RECEIVED,
-                    "REPLY TIMING (${pass.name}) 21%02X %d bytes: median %d ms, min %d, max %d (%d replies)"
-                        .format(id, pass.sizes[id], medians[id], list.min(), list.max(), list.size),
-                )
-            }
-        }
-        val normal = passes.first()
-        val baseline = replyTimingVerdict(normal.medians().map { (id, ms) -> normal.sizes.getValue(id) to ms })
-        val live = 0x00
-        val comparisons = passes.drop(1).map { pass ->
-            // A cut-short reply shows as a smaller size than the normal pass, or as a failure.
-            val cutShort = TIMING_TABLES.count { id -> pass.sizes[id] != null && pass.sizes[id] != normal.sizes[id] }
-            if (normal.medians()[live] != null && pass.medians()[live] != null) {
-                "with ${pass.name}: 21 00 %d ms (normal %d ms), %d failed, %d table(s) cut short"
-                    .format(pass.medians()[live], normal.medians()[live], pass.failed, cutShort)
-            } else {
-                "${pass.name} gave no usable 21 00 timing (${pass.failed} failed)"
-            }
-        }
-        val verdict = "$baseline. " + comparisons.joinToString(". ")
-        ioLog.append(IoDirection.RECEIVED, "REPLY TIMING $verdict")
-        return verdict
+
+        results += timeLiveTable("21 00 with 20 ms gap", 20)
+        results += timeLiveTable("21 00 with no gap", 0)
+        runCatching { client.sendCommand("ATAT1") }
+        results += timeLiveTable("21 00 with ATAT1, 20 ms gap", 20)
+        runCatching { client.sendCommand("ATAT0") }
+
+        results.forEach { ioLog.append(IoDirection.RECEIVED, "SPEED PROBE $it") }
+        return results.joinToString("; ")
     }
 
     /**
@@ -495,13 +477,15 @@ class Elm327LiveDataSource(
 
     /** Called with each snapshot read gradually in the background after connecting (CAN only). */
     var onBackgroundSnapshot: ((EcuSnapshot) -> Unit)? = null
+    /** Background table reads wait while this is false (e.g. under boost), so they never delay a peak. */
+    var backgroundReadAllowed: () -> Boolean = { true }
     private var backgroundResults: LinkedHashMap<Int, Result<ByteArray>>? = null
     private var cyclesSinceBackgroundRead = 0
 
     // One table every few cycles: each such cycle is ~150 ms slower, but live data never pauses.
     override suspend fun endCycle() {
         val results = backgroundResults ?: return
-        if (++cyclesSinceBackgroundRead < BACKGROUND_SNAPSHOT_EVERY_CYCLES) return
+        if (++cyclesSinceBackgroundRead < BACKGROUND_SNAPSHOT_EVERY_CYCLES || !backgroundReadAllowed()) return
         cyclesSinceBackgroundRead = 0
         val id = EcuTables.SNAPSHOT_TABLES[results.size]
         ensureCanHeader(ENGINE_ECU)
@@ -565,12 +549,13 @@ class Elm327LiveDataSource(
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
         const val BACKGROUND_SNAPSHOT_EVERY_CYCLES = 4
+        const val CAN_TABLE_RETRY_MS = 50L
         const val KWP_RECOVERY_FAILURES = 6
         const val KWP_RECOVERY_GAP_MS = 5000L
         const val KWP_INIT_RETRY_MS = 10_000L
-        const val TIMING_ROUNDS = 10
-        // Small to large: 21 41 (~11 bytes), 21 34 (~18), 21 35 (~25), 21 3A (~200 stored), 21 00 (~208 live).
-        val TIMING_TABLES = listOf(0x41, 0x34, 0x35, 0x3A, 0x00)
+        const val SPEED_PROBE_REQUESTS = 20
+        // 61 00 header + 208 data bytes; fewer means the adapter stopped reading early.
+        const val LIVE_TABLE_BYTES = 210
 
         // Data bytes per standard OBD-II mode 01 PID (SAE J1979), needed to split batched replies.
         val PID_DATA_LENGTHS = mapOf(

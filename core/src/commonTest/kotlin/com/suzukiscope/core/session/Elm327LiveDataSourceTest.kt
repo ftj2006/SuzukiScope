@@ -180,12 +180,50 @@ class Elm327LiveDataSourceTest {
     private fun String.hexBytes() = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
     @Test
-    fun replyTimingSeparatesFixedAndSizeDependentTime() {
-        val transferBound = replyTimingVerdict(listOf(11 to 45L, 18 to 50L, 200 to 180L, 208 to 186L))
-        kotlin.test.assertContains(transferBound, "mostly transfer")
-        val ecuBound = replyTimingVerdict(listOf(11 to 170L, 18 to 172L, 200 to 195L, 208 to 198L))
-        kotlin.test.assertContains(ecuBound, "mostly ECU/turnaround")
-        assertEquals("not enough tables answered to compare", replyTimingVerdict(listOf(208 to 200L)))
+    fun backgroundReadsWaitForLightLoadAndTableRetriesDoNotBackOff() = runTest {
+        val requests = mutableListOf<String>()
+        val source = Elm327LiveDataSource(canAdapter(requests), Elm327Protocol.CAN_11BIT_500K)
+        source.connect()
+        var quiet = false
+        source.backgroundReadAllowed = { quiet }
+        requests.clear()
+        repeat(Elm327LiveDataSource.BACKGROUND_SNAPSHOT_EVERY_CYCLES * 3) { source.endCycle() }
+        assertEquals(0, requests.count { it.startsWith("21") })
+        quiet = true
+        source.endCycle()
+        assertEquals(1, requests.count { it.startsWith("21") })
+
+        val table = FieldDefinition(
+            id = "t",
+            label = "t",
+            unit = "",
+            request = RequestSpec(targetAddress = 0x7E0, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
+            decode = DecodeSpec(skipBytes = 2, byteLength = 1),
+        )
+        assertEquals(Elm327LiveDataSource.CAN_TABLE_RETRY_MS, source.retryDelayMs(table, 4))
+    }
+
+    @Test
+    fun speedProbesReportServiceSupportAndRestoreAdaptiveTiming() = runTest {
+        val requests = mutableListOf<String>()
+        val transport = LoopbackTransport { bytes ->
+            val cmd = bytes.decodeToString().trim()
+            requests += cmd
+            when {
+                cmd.startsWith("22") -> "7F2231"
+                cmd.startsWith("23") -> "7F2311"
+                cmd == "2100" -> "61" + "00".repeat(209)
+                else -> "OK"
+            }.plus("\r>").encodeToByteArray()
+        }
+        val source = Elm327LiveDataSource(transport, Elm327Protocol.CAN_11BIT_500K)
+        source.connect()
+        val summary = source.runSpeedProbes {}
+        kotlin.test.assertContains(summary, "22 F1 90: refused, NRC 31")
+        kotlin.test.assertContains(summary, "23 000000 x4: refused, NRC 11")
+        kotlin.test.assertContains(summary, "21 00 with no gap: reply median")
+        kotlin.test.assertContains(summary, "0 failed, 0 cut short")
+        assertEquals("ATAT0", requests.last { it.startsWith("ATAT") })
     }
 
     private fun obdField(id: String, pids: List<Int>, decode: DecodeSpec, fallback: FieldFallback? = null) = FieldDefinition(

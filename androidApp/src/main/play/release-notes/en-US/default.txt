@@ -1,3 +1,4 @@
-- CAN only: K-Line option and fields hidden (the Swift Sport ZC33S uses CAN)
-- "Time replies" also tests a shorter adapter timeout (ATST08) and the "expect 1 reply" hint
-- Clearer handling of adapter bus errors
+- Fewer gauge freezes under boost: slow engine replies are kept (up to 1.5 s) and retried at once
+- Background ECU snapshot reads wait for light load (low boost and rpm)
+- Settings > Diagnostics: "Speed probes" tests services 22/23, no request gap and adaptive timing
+- "Time replies" removed (finished)

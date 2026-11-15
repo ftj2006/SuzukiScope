@@ -22,6 +22,9 @@ interface LiveDataSource {
 
     /** False for fields this source can't read right now (e.g. they need the other bus protocol); those are skipped. */
     fun canPoll(field: FieldDefinition): Boolean = true
+
+    /** How long a failed field waits before its next try; doubles per failure by default (capped at 8 s). */
+    fun retryDelayMs(field: FieldDefinition, failures: Int): Long = 250L * (1L shl failures.coerceAtMost(5))
 }
 
 /**
@@ -56,7 +59,7 @@ class LiveDataSession(
                     // Back off only this field; waiting here would stall every other field too.
                     val failureCount = (failures[field.id] ?: 0).coerceAtMost(5)
                     failures[field.id] = failureCount + 1
-                    retryAt[field.id] = currentTimeMillis() + 250L * (1L shl failureCount)
+                    retryAt[field.id] = currentTimeMillis() + source.retryDelayMs(field, failureCount)
                 }
             }
             if (due.isNotEmpty()) {

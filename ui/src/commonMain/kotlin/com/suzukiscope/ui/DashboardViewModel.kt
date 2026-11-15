@@ -312,6 +312,8 @@ class DashboardViewModel(
         const val WIDEN_AFTER_READINGS = 3
         const val MIN_SPAN_FRACTION = 0.2
         const val STALE_MS = 2000L
+        const val QUIET_BOOST_BAR = 0.1
+        const val QUIET_RPM = 2500.0
     }
 
     fun stop() {
@@ -356,6 +358,7 @@ class DashboardViewModel(
         source = newSource
         (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
         (newSource as? Elm327LiveDataSource)?.onBackgroundSnapshot = ::onBackgroundSnapshot
+        (newSource as? Elm327LiveDataSource)?.backgroundReadAllowed = ::engineQuiet
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
@@ -535,9 +538,9 @@ class DashboardViewModel(
         "Table probe done: $summary. Export the connection log to share it."
     }
 
-    /** Pauses polling and times small vs large table replies (see [Elm327LiveDataSource.timeTableReplies]). */
-    suspend fun timeTableReplies() = withPollingPaused("Reply timing") { liveSource, progress ->
-        "Reply timing: " + liveSource.timeTableReplies(progress)
+    /** Pauses polling and runs the read-only speed experiments (see [Elm327LiveDataSource.runSpeedProbes]). */
+    suspend fun runSpeedProbes() = withPollingPaused("Speed probes") { liveSource, progress ->
+        "Speed probes: " + liveSource.runSpeedProbes(progress)
     }
 
     /** Pauses polling, reads every known engine table and saves them to a dated file. */
@@ -569,6 +572,12 @@ class DashboardViewModel(
         val merged = _ecuTables.value + snapshot.tables
         _ecuTables.value = merged
         ecuTablesSink?.invoke(com.suzukiscope.core.ecu.EcuTables.toText(merged))
+    }
+
+    // Background snapshot reads add ~150 ms to a cycle, so they wait for light load; unknown values count as quiet.
+    private fun engineQuiet(): Boolean {
+        val values = _values.value
+        return (values["engine.boost_relative"] ?: 0.0) < QUIET_BOOST_BAR && (values["engine.rpm"] ?: 0.0) < QUIET_RPM
     }
 
     // Background snapshots are only saved as a file when stored data changed since the last one.

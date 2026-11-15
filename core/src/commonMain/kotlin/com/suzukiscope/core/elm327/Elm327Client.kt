@@ -161,12 +161,11 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
      * With [checkReply] (CAN only: replies carry no header), a reply that belongs to an earlier
      * request (wrong service/id, cut short, empty, or already buffered) is discarded and the
      * adapter is read again until the matching reply arrives or [timeoutMs] runs out.
-     * [responseCount] appends the ELM327 "expect N replies" digit, which skips the end-of-reply wait.
      */
-    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, checkReply: Boolean = false, responseCount: Int? = null): ByteArray {
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, checkReply: Boolean = false): ByteArray {
         val hex = payload.joinToString("") { "%02X".format(it) }
         val start = currentTimeMillis()
-        var response = sendCommand(hex + (responseCount?.toString() ?: ""), timeoutMs)
+        var response = sendCommand(hex, timeoutMs)
         if (!checkReply) return parseHexBytes(response)
         var alreadyBuffered = currentTimeMillis() - start < transport.minReplyMs
         repeat(MAX_STALE_REPLIES) {
