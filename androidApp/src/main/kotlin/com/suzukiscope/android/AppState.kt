@@ -198,13 +198,9 @@ object AppState {
         }
     }
 
-    /** Restores the chosen vehicle bus (or infers it from the enabled fields) and drops any other-bus fields. */
-    fun initVehicleProtocol(file: File) {
-        val saved = runCatching { Elm327Protocol.valueOf(file.readText().trim()) }.getOrNull()
-        dashboardViewModel.setVehicleProtocol(saved ?: dashboardViewModel.inferVehicleProtocol())
-        dashboardViewModel.vehicleProtocolSink = { protocol ->
-            runCatching { file.parentFile?.mkdirs(); file.writeText(protocol.name) }
-        }
+    /** The supported car (Swift Sport ZC33S) diagnoses over CAN only; K-Line is hidden so it can't slow polling. */
+    fun initVehicleProtocol() {
+        dashboardViewModel.setVehicleProtocol(Elm327Protocol.CAN_11BIT_500K)
     }
 
     /** Loads the saved Android Auto row layout, if any, and saves every change to it. */

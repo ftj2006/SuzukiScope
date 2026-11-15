@@ -161,11 +161,12 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
      * With [checkReply] (CAN only: replies carry no header), a reply that belongs to an earlier
      * request (wrong service/id, cut short, empty, or already buffered) is discarded and the
      * adapter is read again until the matching reply arrives or [timeoutMs] runs out.
+     * [responseCount] appends the ELM327 "expect N replies" digit, which skips the end-of-reply wait.
      */
-    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, checkReply: Boolean = false): ByteArray {
+    suspend fun requestHex(payload: ByteArray, timeoutMs: Long = 500, checkReply: Boolean = false, responseCount: Int? = null): ByteArray {
         val hex = payload.joinToString("") { "%02X".format(it) }
         val start = currentTimeMillis()
-        var response = sendCommand(hex, timeoutMs)
+        var response = sendCommand(hex + (responseCount?.toString() ?: ""), timeoutMs)
         if (!checkReply) return parseHexBytes(response)
         var alreadyBuffered = currentTimeMillis() - start < transport.minReplyMs
         repeat(MAX_STALE_REPLIES) {
@@ -200,6 +201,10 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         // Mode 01 (PID), 10 (session), 21 (local id), 2C (dynamic id) echo their first parameter.
         private val ECHOING_SERVICES = setOf(0x01, 0x10, 0x21, 0x2C)
         const val TRUNCATED_REPLY = "Truncated reply"
+        private val ADAPTER_ERRORS = listOf("NO DATA", "ERROR", "STOPPED", "UNABLE TO CONNECT", "BUS BUSY", "BUFFER FULL")
+
+        /** ELM327 status replies such as "BUS INIT: ERROR"; their letters would otherwise parse as hex (e.g. "BE"). */
+        fun isAdapterError(response: String): Boolean = response == "?" || ADAPTER_ERRORS.any { it in response }
 
         /** Strips echo of the command, the '>' prompt, whitespace, and "SEARCHING..."/error noise. */
         internal fun cleanResponse(raw: String): String =
@@ -207,15 +212,15 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
                 .lines()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() && !it.startsWith("SEARCHING") }
+                // A successful automatic K-Line init ("BUS INIT: ...OK") precedes the actual reply.
+                .filterNot { it.startsWith("BUS INIT") && !it.contains("ERROR") }
                 .joinToString(" ")
                 .trim()
 
         /** Parses whitespace-separated hex byte pairs (ignoring any trailing non-hex noise). */
         internal fun parseHexBytes(text: String): ByteArray {
             val response = text.trim()
-            require(response != "NO DATA" && response != "ERROR" && response != "?" && response != "STOPPED") {
-                "ELM327 rejected request: $response"
-            }
+            require(!isAdapterError(response)) { "ELM327 rejected request: $response" }
             val canChunks = Regex("(?:^|[\\s\\r\\n])[0-9A-Fa-f]:([0-9A-Fa-f]+)(?=\\s|$)")
                 .findAll(response)
                 .map { it.groupValues[1] }

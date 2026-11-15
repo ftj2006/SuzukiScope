@@ -1,4 +1,3 @@
-- Android Auto gauges now show the blue short-term peak and the warning/critical limit ticks
-- Short-term peak holds for 2 s and is a little thicker
-- After a warning or critical hit, the gauge track turns dark amber or red for 1 minute (phone and car)
-- Settings > Diagnostics: "Time replies" checks whether the adapter or the ECU limits the update rate
+- CAN only: K-Line option and fields hidden (the Swift Sport ZC33S uses CAN)
+- "Time replies" also tests a shorter adapter timeout (ATST08) and the "expect 1 reply" hint
+- Clearer handling of adapter bus errors

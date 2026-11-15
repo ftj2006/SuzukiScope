@@ -39,6 +39,65 @@ class Elm327LiveDataSourceTest {
         assertEquals(40.0, source.poll(oilTemp))
     }
 
+    @Test
+    fun reinitialisesAStuckKLineSession() = runTest {
+        val requests = mutableListOf<String>()
+        var sessionUp = true
+        val transport = LoopbackTransport { bytes ->
+            val cmd = bytes.decodeToString().trim()
+            requests += cmd
+            when {
+                cmd == "ATFI" -> { sessionUp = true; "BUS INIT: OK\r>" }
+                cmd.startsWith("2115") -> if (sessionUp) "80 10 F1 61 15 50 B7\r>" else "BUS ERROR\r>"
+                else -> "OK\r>"
+            }.encodeToByteArray()
+        }
+        val source = Elm327LiveDataSource(transport)
+        source.connect()
+        val field = FieldDefinition(
+            id = "test.field",
+            label = "Test Field",
+            unit = "",
+            request = RequestSpec(targetAddress = 0x10, mode = 0x21, params = listOf(0x15)),
+            decode = DecodeSpec(skipBytes = 2, byteLength = 1, offset = -40.0),
+        )
+        assertEquals(40.0, source.poll(field))
+
+        sessionUp = false
+        repeat(Elm327LiveDataSource.KWP_RECOVERY_FAILURES) {
+            source.beginCycle(listOf(field))
+            runCatching { source.poll(field) }
+        }
+        requests.clear()
+        source.beginCycle(listOf(field))
+        assertEquals(40.0, source.poll(field))
+        assertEquals(true, "ATFI" in requests)
+    }
+
+    @Test
+    fun skipsAKLineModuleThatFailsBusInit() = runTest {
+        val requests = mutableListOf<String>()
+        val transport = LoopbackTransport { bytes ->
+            val cmd = bytes.decodeToString().trim()
+            requests += cmd
+            (if (cmd == "ATFI") "BUS INIT: ERROR\r>" else "OK\r>").encodeToByteArray()
+        }
+        val source = Elm327LiveDataSource(transport)
+        source.connect()
+        val field = FieldDefinition(
+            id = "test.field",
+            label = "Test Field",
+            unit = "",
+            request = RequestSpec(targetAddress = 0x5A, mode = 0x21, params = listOf(0x08)),
+            decode = DecodeSpec(skipBytes = 2, byteLength = 1),
+        )
+        val first = runCatching { source.poll(field) }.exceptionOrNull()?.message.orEmpty()
+        kotlin.test.assertContains(first, "did not answer bus init")
+        requests.clear()
+        runCatching { source.poll(field) }
+        assertEquals(emptyList(), requests)
+    }
+
     private fun canAdapter(requests: MutableList<String>) = LoopbackTransport { bytes ->
         val cmd = bytes.decodeToString().trim()
         requests += cmd

@@ -46,8 +46,18 @@ class DashboardViewModel(
     data class ExportFile(val name: String, val contents: String)
     data class ConnectionLog(val id: String, val contents: String)
 
-    private val _fields = MutableStateFlow(registry.fields)
-    val fields: StateFlow<List<FieldDefinition>> = _fields.asStateFlow()
+    private val busFields = MutableStateFlow(registry.fields.filter { it.busProtocol == Elm327Protocol.CAN_11BIT_500K })
+    /** Fields of the current vehicle bus only; the other bus's fields keep their own selection for switching back. */
+    val fields: StateFlow<List<FieldDefinition>> = busFields.asStateFlow()
+
+    // Every field, on both buses; setting it republishes the current bus's share as [fields].
+    private val _fields = object {
+        var value: List<FieldDefinition> = registry.fields
+            set(all) {
+                field = all
+                busFields.value = all.filter { it.busProtocol == _vehicleProtocol.value }
+            }
+    }
 
     private val _values = MutableStateFlow<Map<String, Double>>(emptyMap())
     val values: StateFlow<Map<String, Double>> = _values.asStateFlow()
@@ -78,7 +88,6 @@ class DashboardViewModel(
     /** The car's diagnostic bus; only fields for this bus can be enabled, and connecting uses it. */
     private val _vehicleProtocol = MutableStateFlow(Elm327Protocol.CAN_11BIT_500K)
     val vehicleProtocol: StateFlow<Elm327Protocol> = _vehicleProtocol.asStateFlow()
-    var vehicleProtocolSink: ((Elm327Protocol) -> Unit)? = null
 
     private val _autoLayout = MutableStateFlow(com.suzukiscope.core.layout.AutoLayoutConfig())
     val autoLayout: StateFlow<com.suzukiscope.core.layout.AutoLayoutConfig> = _autoLayout.asStateFlow()
@@ -96,7 +105,7 @@ class DashboardViewModel(
     // 20 ms (was 50) is under trial for lower latency.
     private fun newSession() = LiveDataSession(
         source,
-        fieldsProvider = { _fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) } },
+        fieldsProvider = { fields.value.filter { it.enabled || (_isLogging.value && it.recordEnabled) } },
         intervalMs = if (source is Elm327LiveDataSource) 20 else 40,
     )
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
@@ -123,7 +132,7 @@ class DashboardViewModel(
     private suspend fun trackStaleFields() {
         while (true) {
             val now = currentTimeMillis()
-            val stale = _fields.value.filter { it.enabled }.filter { field ->
+            val stale = fields.value.filter { it.enabled }.filter { field ->
                 now - (fieldReadingAtMs[field.id] ?: pollStartedAtMs) > STALE_MS
             }.map { it.id }.toSet()
             if (stale != _staleFields.value) _staleFields.value = stale
@@ -425,20 +434,11 @@ class DashboardViewModel(
         testDataSettingSink?.invoke(enabled)
     }
 
-    /** Switches the vehicle bus and disables any enabled fields that belong to the other one. */
+    /** Switches the vehicle bus; each bus remembers which of its fields were enabled. */
     fun setVehicleProtocol(protocol: Elm327Protocol) {
         _vehicleProtocol.value = protocol
-        registry.fields.filter { it.enabled && it.busProtocol != protocol }.forEach { registry.setEnabled(it.id, false) }
         _fields.value = registry.fields
         persist()
-        vehicleProtocolSink?.invoke(protocol)
-    }
-
-    /** Bus most enabled fields use (CAN when tied or none) — the starting point before the user picks one. */
-    fun inferVehicleProtocol(): Elm327Protocol {
-        val enabled = registry.fields.filter { it.enabled }
-        val kwp = enabled.count { it.busProtocol == Elm327Protocol.KWP_FAST }
-        return if (kwp * 2 > enabled.size) Elm327Protocol.KWP_FAST else Elm327Protocol.CAN_11BIT_500K
     }
 
     fun setRecordEnabled(id: String, recordEnabled: Boolean) {

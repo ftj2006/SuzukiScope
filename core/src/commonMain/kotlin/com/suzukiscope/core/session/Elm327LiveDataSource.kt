@@ -64,6 +64,8 @@ class Elm327LiveDataSource(
     private var lastHeader: List<Int>? = null
     private var canConfiguration: Int? = null
     private var kwpInitialisedTarget: Int? = null
+    private val kwpInitFailedAtMs = HashMap<Int, Long>()
+    private var lastRequestAtMs = 0L
     private var keepAliveJob: Job? = null
 
     // Several fields share an identical RequestSpec and only differ in where they decode their
@@ -171,7 +173,8 @@ class Elm327LiveDataSource(
         keepAliveJob = scope.launch {
             while (isActive) {
                 delay(intervalMs)
-                if (!initialised) continue
+                // Only needed when polling has gone quiet, and only with a live session (else it just retries bus init).
+                if (!initialised || kwpInitialisedTarget == null || currentTimeMillis() - lastRequestAtMs < intervalMs) continue
                 try {
                     client.sendCommand("3E")
                 } catch (e: Exception) {
@@ -190,11 +193,38 @@ class Elm327LiveDataSource(
         check(initialised) { "Elm327LiveDataSource.connect() must be called before polling" }
         val effective = resolve(field)
         try {
-            return if (effective.request.mode == OBD_MODE_CURRENT_DATA) pollObd(effective) else pollRaw(effective)
+            val value = if (effective.request.mode == OBD_MODE_CURRENT_DATA) pollObd(effective) else pollRaw(effective)
+            kwpFailuresInARow = 0
+            kwpSessionWasUp = true
+            return value
         } catch (e: Exception) {
             ioLog.append(IoDirection.ERROR, "poll '${field.id}' failed: ${describeError(e)}")
+            if (protocol == Elm327Protocol.KWP_FAST && e !is kotlinx.coroutines.CancellationException) recoverKwpIfStuck()
             throw e
         }
+    }
+
+    private var kwpFailuresInARow = 0
+    private var lastKwpRecoveryMs = 0L
+    // Recovery is for a session that worked and then dropped; it can't help modules that never answered.
+    private var kwpSessionWasUp = false
+
+    // A dropped K-Line session leaves every request failing until the bus is initialised again.
+    private suspend fun recoverKwpIfStuck() {
+        if (!kwpSessionWasUp || ++kwpFailuresInARow < KWP_RECOVERY_FAILURES || client.transportBroken) return
+        val now = currentTimeMillis()
+        if (now - lastKwpRecoveryMs < KWP_RECOVERY_GAP_MS) return
+        lastKwpRecoveryMs = now
+        ioLog.append(IoDirection.ERROR, "K-LINE RECOVERY: $kwpFailuresInARow failed requests in a row; re-initialising the adapter and K-Line session")
+        kwpFailuresInARow = 0
+        kwpSessionWasUp = false
+        lastHeader = null
+        kwpInitialisedTarget = null
+        kwpInitFailedAtMs.clear()
+        runCatching {
+            client.reset()
+            client.initProtocol(protocol)
+        }.onFailure { ioLog.append(IoDirection.ERROR, "K-LINE RECOVERY failed: ${describeError(it)}") }
     }
 
     /** Swaps in the Suzuki fallback request when the vehicle doesn't support the field's OBD-II PIDs. */
@@ -287,37 +317,67 @@ class Elm327LiveDataSource(
 
     /**
      * Times small and large tables in turn to split each reply into a fixed part (ECU, adapter turnaround)
-     * and a part that grows with size (adapter-to-phone transfer). Returns a one-line verdict.
+     * and a part that grows with size (adapter-to-phone transfer), then repeats with a shorter end-of-reply
+     * wait (ATST08) and with the "expect 1 reply" digit to see whether this adapter can answer sooner
+     * without cutting replies short.
      */
     suspend fun timeTableReplies(onProgress: (String) -> Unit): String {
         check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Reply timing needs a CAN connection" }
         ensureCanHeader(ENGINE_ECU)
-        val sizes = HashMap<Int, Int>()
-        val times = HashMap<Int, MutableList<Long>>()
+        class Pass(val name: String, val timeout: String, val responseCount: Int?) {
+            val sizes = HashMap<Int, Int>()
+            val times = HashMap<Int, MutableList<Long>>()
+            var failed = 0
+            fun medians() = times.mapValues { (_, list) -> list.sorted()[list.size / 2] }
+        }
+        val passes = listOf(Pass("normal", "ATST10", null), Pass("ATST08", "ATST08", null), Pass("expect 1 reply", "ATST10", 1))
         for (round in 1..TIMING_ROUNDS) {
             onProgress("Timing replies, round $round/$TIMING_ROUNDS")
-            for (id in TIMING_TABLES) {
-                if (client.transportBroken) break
-                val start = currentTimeMillis()
-                val reply = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true) }.getOrNull()
-                val ms = currentTimeMillis() - start
-                if (reply != null && reply.size >= 2 && reply[0] == 0x61.toByte()) {
-                    sizes[id] = reply.size - 2
-                    times.getOrPut(id) { ArrayList() } += ms
+            for (pass in passes) {
+                runCatching { client.sendCommand(pass.timeout) }
+                for (id in TIMING_TABLES) {
+                    if (client.transportBroken) break
+                    val start = currentTimeMillis()
+                    val reply = runCatching {
+                        client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true, responseCount = pass.responseCount)
+                    }.getOrNull()
+                    val ms = currentTimeMillis() - start
+                    if (reply != null && reply.size >= 2 && reply[0] == 0x61.toByte()) {
+                        pass.sizes[id] = reply.size - 2
+                        pass.times.getOrPut(id) { ArrayList() } += ms
+                    } else {
+                        pass.failed++
+                    }
+                    delay(50)
                 }
-                delay(50)
             }
         }
-        val medians = times.mapValues { (_, list) -> list.sorted()[list.size / 2] }
-        for (id in TIMING_TABLES) {
-            val list = times[id] ?: continue
-            ioLog.append(
-                IoDirection.RECEIVED,
-                "REPLY TIMING 21%02X %d bytes: median %d ms, min %d, max %d (%d replies)"
-                    .format(id, sizes[id], medians[id], list.min(), list.max(), list.size),
-            )
+        runCatching { client.sendCommand("ATST10") }
+        for (pass in passes) {
+            val medians = pass.medians()
+            for (id in TIMING_TABLES) {
+                val list = pass.times[id] ?: continue
+                ioLog.append(
+                    IoDirection.RECEIVED,
+                    "REPLY TIMING (${pass.name}) 21%02X %d bytes: median %d ms, min %d, max %d (%d replies)"
+                        .format(id, pass.sizes[id], medians[id], list.min(), list.max(), list.size),
+                )
+            }
         }
-        val verdict = replyTimingVerdict(medians.map { (id, ms) -> sizes.getValue(id) to ms })
+        val normal = passes.first()
+        val baseline = replyTimingVerdict(normal.medians().map { (id, ms) -> normal.sizes.getValue(id) to ms })
+        val live = 0x00
+        val comparisons = passes.drop(1).map { pass ->
+            // A cut-short reply shows as a smaller size than the normal pass, or as a failure.
+            val cutShort = TIMING_TABLES.count { id -> pass.sizes[id] != null && pass.sizes[id] != normal.sizes[id] }
+            if (normal.medians()[live] != null && pass.medians()[live] != null) {
+                "with ${pass.name}: 21 00 %d ms (normal %d ms), %d failed, %d table(s) cut short"
+                    .format(pass.medians()[live], normal.medians()[live], pass.failed, cutShort)
+            } else {
+                "${pass.name} gave no usable 21 00 timing (${pass.failed} failed)"
+            }
+        }
+        val verdict = "$baseline. " + comparisons.joinToString(". ")
         ioLog.append(IoDirection.RECEIVED, "REPLY TIMING $verdict")
         return verdict
     }
@@ -366,13 +426,27 @@ class Elm327LiveDataSource(
         } else {
             val header = listOf(if (field.request.isFunctionalAddress) 0xC0 else 0x80, field.request.targetAddress, 0xF1)
             if (header != lastHeader) {
-                client.setHeader(header)
-                if (kwpInitialisedTarget != field.request.targetAddress) {
-                    client.sendCommand("ATST19")
-                    client.sendCommand("ATFI", timeoutMs = 1000)
-                    kwpInitialisedTarget = field.request.targetAddress
+                val target = field.request.targetAddress
+                val failedAt = kwpInitFailedAtMs[target]
+                // Each failed init costs ~1 s; retrying a silent module every cycle stalls the others.
+                if (failedAt != null && currentTimeMillis() - failedAt < KWP_INIT_RETRY_MS) {
+                    error("K-Line module %02X did not answer bus init; retrying shortly".format(target))
                 }
+                client.setHeader(header)
                 lastHeader = header
+                if (kwpInitialisedTarget != target) {
+                    kwpInitialisedTarget = null
+                    client.sendCommand("ATST19")
+                    val init = client.sendCommand("ATFI", timeoutMs = 2000)
+                    if (Elm327Client.isAdapterError(init)) {
+                        kwpInitFailedAtMs[target] = currentTimeMillis()
+                        lastHeader = null
+                        ioLog.append(IoDirection.ERROR, "K-Line module %02X did not answer bus init ($init); skipping it for %d s".format(target, KWP_INIT_RETRY_MS / 1000))
+                        error("K-Line module %02X did not answer bus init: $init".format(target))
+                    }
+                    kwpInitFailedAtMs.remove(target)
+                    kwpInitialisedTarget = target
+                }
             }
         }
     }
@@ -392,6 +466,7 @@ class Elm327LiveDataSource(
         val key = payload.joinToString("") { "%02X".format(it) }
         val stats = requestStats.getOrPut(key) { RequestStats() }
         val start = currentTimeMillis()
+        lastRequestAtMs = start
         try {
             return client.requestHex(payload, timeoutMs, checkReply = protocol == Elm327Protocol.CAN_11BIT_500K)
         } catch (e: Exception) {
@@ -490,6 +565,9 @@ class Elm327LiveDataSource(
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
         const val BACKGROUND_SNAPSHOT_EVERY_CYCLES = 4
+        const val KWP_RECOVERY_FAILURES = 6
+        const val KWP_RECOVERY_GAP_MS = 5000L
+        const val KWP_INIT_RETRY_MS = 10_000L
         const val TIMING_ROUNDS = 10
         // Small to large: 21 41 (~11 bytes), 21 34 (~18), 21 35 (~25), 21 3A (~200 stored), 21 00 (~208 live).
         val TIMING_TABLES = listOf(0x41, 0x34, 0x35, 0x3A, 0x00)
