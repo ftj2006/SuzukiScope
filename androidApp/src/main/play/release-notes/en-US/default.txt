@@ -1,3 +1,1 @@
-- Engine ECU snapshot read in the background after connecting, without pausing live data; saved only when stored data changes
-- Collapsible Vehicle row on the dashboard: odometer, engine starts, learned fuel trims, latest stored fault
-- Stored fault history (engine ECU) in the Fault codes tab
+- Phone gauges show a blue short-term peak that holds for 1.5 s, then falls back to the needle; the outright peak mark stays

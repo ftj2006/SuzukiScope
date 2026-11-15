@@ -11,7 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -26,10 +32,32 @@ import kotlin.math.sin
 private const val START_ANGLE = 135f
 private const val SWEEP_ANGLE = 270f
 private val STALE_COLOR = Color(0xFF757575)
+private val SHORT_PEAK_COLOR = Color(0xFF4FC3F7)
+private const val SHORT_PEAK_HOLD_MS = 1500L
+// Fraction of the gauge range the short-term peak falls per second once its hold ends.
+private const val SHORT_PEAK_FALL_PER_S = 0.5
+
+/** Peak-meter style hold: follows rises at once, holds, then falls back to the live value. */
+private class ShortTermPeak {
+    private var peak = Double.NaN
+    private var heldAtMs = 0L
+    private var lastMs = 0L
+
+    fun update(value: Double, range: Double, nowMs: Long): Double {
+        if (peak.isNaN() || value >= peak) {
+            peak = value
+            heldAtMs = nowMs
+        } else if (nowMs - heldAtMs > SHORT_PEAK_HOLD_MS) {
+            peak = maxOf(value, peak - range * SHORT_PEAK_FALL_PER_S * (nowMs - lastMs) / 1000.0)
+        }
+        lastMs = nowMs
+        return peak
+    }
+}
 
 /**
  * A circular gauge showing the current value, a coloured arc for min..max, a tick mark for
- * the recorded peak value, and (if set) tick marks + colour changes at the warning/critical
+ * the recorded peak value, a blue short-term peak that holds then falls back, and (if set) tick marks + colour changes at the warning/critical
  * thresholds instead of the generic min/max-fraction colouring.
  */
 @Composable
@@ -55,6 +83,14 @@ fun Gauge(
             spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 4 * Spring.StiffnessHigh),
             label = "gaugeValue",
         )
+        val latestValue by rememberUpdatedState(value)
+        val shortTermPeak = remember { ShortTermPeak() }
+        var shortPeak by remember { mutableStateOf(value) }
+        LaunchedEffect(min, max) {
+            while (true) {
+                withFrameMillis { now -> shortPeak = shortTermPeak.update(latestValue, max - min, now) }
+            }
+        }
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
                 val stroke = size.minDimension * 0.09f
@@ -101,6 +137,8 @@ fun Gauge(
                 warningThreshold?.let { tick(it, Color(0xFFFFB300).copy(alpha = 0.55f), 0.1f) }
                 criticalThreshold?.let { tick(it, Color(0xFFE53935).copy(alpha = 0.55f), 0.1f) }
                 peak?.let { tick(it, Color(0xFFFFFFFF), 0.28f) }
+                // Hidden while it sits on the needle, so it only shows a recent high point.
+                if (!stale && shortPeak > shownValue + (max - min) * 0.01) tick(shortPeak, SHORT_PEAK_COLOR, 0.18f)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // White digits for readability; only warning/critical recolour the number.
