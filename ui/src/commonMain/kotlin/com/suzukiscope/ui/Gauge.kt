@@ -33,31 +33,17 @@ private const val START_ANGLE = 135f
 private const val SWEEP_ANGLE = 270f
 private val STALE_COLOR = Color(0xFF757575)
 private val SHORT_PEAK_COLOR = Color(0xFF4FC3F7)
-private const val SHORT_PEAK_HOLD_MS = 1500L
-// Fraction of the gauge range the short-term peak falls per second once its hold ends.
-private const val SHORT_PEAK_FALL_PER_S = 0.5
-
-/** Peak-meter style hold: follows rises at once, holds, then falls back to the live value. */
-private class ShortTermPeak {
-    private var peak = Double.NaN
-    private var heldAtMs = 0L
-    private var lastMs = 0L
-
-    fun update(value: Double, range: Double, nowMs: Long): Double {
-        if (peak.isNaN() || value >= peak) {
-            peak = value
-            heldAtMs = nowMs
-        } else if (nowMs - heldAtMs > SHORT_PEAK_HOLD_MS) {
-            peak = maxOf(value, peak - range * SHORT_PEAK_FALL_PER_S * (nowMs - lastMs) / 1000.0)
-        }
-        lastMs = nowMs
-        return peak
-    }
-}
+private val WARNING_COLOR = Color(0xFFFFB300)
+private val CRITICAL_COLOR = Color(0xFFE53935)
+// Background track after a recent limit hit: dim enough that the live value arc still stands out.
+private val TRACK_COLOR = Color(0xFF3A3A3A)
+private val WARNING_TRACK_COLOR = Color(0xFF6B4E00)
+private val CRITICAL_TRACK_COLOR = Color(0xFF6B1F1D)
 
 /**
  * A circular gauge showing the current value, a coloured arc for min..max, a tick mark for
- * the recorded peak value, a blue short-term peak that holds then falls back, and (if set) tick marks + colour changes at the warning/critical
+ * the recorded peak value, a blue short-term peak that holds then falls back, a yellow/red tinted
+ * track after a recent warning/critical hit, and (if set) tick marks + colour changes at the warning/critical
  * thresholds instead of the generic min/max-fraction colouring.
  */
 @Composable
@@ -73,6 +59,9 @@ fun Gauge(
     decimals: Int? = null,
     /** No recent reading: drawn grey so a frozen feed isn't mistaken for a steady value. */
     stale: Boolean = false,
+    /** Queried every frame, so the short-term peak can fall and the halo expire between readings. */
+    shortPeak: () -> Double? = { null },
+    limitHit: () -> LimitLevel? = { null },
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -83,12 +72,16 @@ fun Gauge(
             spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 4 * Spring.StiffnessHigh),
             label = "gaugeValue",
         )
-        val latestValue by rememberUpdatedState(value)
-        val shortTermPeak = remember { ShortTermPeak() }
-        var shortPeak by remember { mutableStateOf(value) }
-        LaunchedEffect(min, max) {
+        val latestShortPeak by rememberUpdatedState(shortPeak)
+        val latestLimitHit by rememberUpdatedState(limitHit)
+        var shortPeakNow by remember { mutableStateOf<Double?>(null) }
+        var limitHitNow by remember { mutableStateOf<LimitLevel?>(null) }
+        LaunchedEffect(Unit) {
             while (true) {
-                withFrameMillis { now -> shortPeak = shortTermPeak.update(latestValue, max - min, now) }
+                withFrameMillis {
+                    shortPeakNow = latestShortPeak()
+                    limitHitNow = latestLimitHit()
+                }
             }
         }
         Box(Modifier.fillMaxWidth().aspectRatio(1f), contentAlignment = Alignment.Center) {
@@ -100,7 +93,11 @@ fun Gauge(
                 val arcSize = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
 
                 drawArc(
-                    color = Color(0xFF3A3A3A),
+                    color = when (limitHitNow) {
+                        LimitLevel.CRITICAL -> CRITICAL_TRACK_COLOR
+                        LimitLevel.WARNING -> WARNING_TRACK_COLOR
+                        null -> TRACK_COLOR
+                    },
                     startAngle = START_ANGLE,
                     sweepAngle = SWEEP_ANGLE,
                     useCenter = false,
@@ -134,11 +131,10 @@ fun Gauge(
                     )
                 }
 
-                warningThreshold?.let { tick(it, Color(0xFFFFB300).copy(alpha = 0.55f), 0.1f) }
-                criticalThreshold?.let { tick(it, Color(0xFFE53935).copy(alpha = 0.55f), 0.1f) }
+                warningThreshold?.let { tick(it, WARNING_COLOR.copy(alpha = 0.55f), 0.1f) }
+                criticalThreshold?.let { tick(it, CRITICAL_COLOR.copy(alpha = 0.55f), 0.1f) }
                 peak?.let { tick(it, Color(0xFFFFFFFF), 0.28f) }
-                // Hidden while it sits on the needle, so it only shows a recent high point.
-                if (!stale && shortPeak > shownValue + (max - min) * 0.01) tick(shortPeak, SHORT_PEAK_COLOR, 0.18f)
+                if (!stale) shortPeakNow?.let { tick(it, SHORT_PEAK_COLOR, 0.23f) }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 // White digits for readability; only warning/critical recolour the number.
@@ -179,8 +175,8 @@ fun Gauge(
 
 /** Colours by warning/critical thresholds; without any, the gauge stays green so orange/red always mean a set limit. */
 private fun gaugeColor(value: Double, warningThreshold: Double?, criticalThreshold: Double?): Color = when {
-    criticalThreshold != null && value >= criticalThreshold -> Color(0xFFE53935)
-    warningThreshold != null && value >= warningThreshold -> Color(0xFFFFB300)
+    criticalThreshold != null && value >= criticalThreshold -> CRITICAL_COLOR
+    warningThreshold != null && value >= warningThreshold -> WARNING_COLOR
     else -> Color(0xFF43A047)
 }
 

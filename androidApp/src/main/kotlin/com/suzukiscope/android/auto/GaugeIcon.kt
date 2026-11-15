@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import androidx.car.app.model.CarIcon
 import androidx.core.graphics.drawable.IconCompat
+import com.suzukiscope.ui.LimitLevel
 
 /**
  * Renders a compact radial gauge as a bitmap for use as a Car App [GridItem]/[Row] image. The
@@ -21,6 +22,10 @@ object GaugeIcon {
     private const val START_ANGLE = 135f
     private const val SWEEP_ANGLE = 270f
     private val STALE_COLOR = Color.rgb(0x75, 0x75, 0x75)
+    private val SHORT_PEAK_COLOR = Color.rgb(0x4F, 0xC3, 0xF7)
+    // Background track after a recent limit hit, matching the phone gauge.
+    private val WARNING_TRACK_COLOR = Color.rgb(0x6B, 0x4E, 0x00)
+    private val CRITICAL_TRACK_COLOR = Color.rgb(0x6B, 0x1F, 0x1D)
 
     fun render(
         label: String,
@@ -33,6 +38,8 @@ object GaugeIcon {
         criticalThreshold: Double?,
         decimals: Int? = null,
         stale: Boolean = false,
+        shortPeak: Double? = null,
+        limitHit: LimitLevel? = null,
     ): CarIcon {
         val bitmap = Bitmap.createBitmap(SIZE_PX, SIZE_PX, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -47,7 +54,11 @@ object GaugeIcon {
             style = Paint.Style.STROKE
             strokeWidth = stroke
             strokeCap = Paint.Cap.ROUND
-            color = Color.argb(255, 70, 70, 70)
+            color = when (limitHit) {
+                LimitLevel.CRITICAL -> CRITICAL_TRACK_COLOR
+                LimitLevel.WARNING -> WARNING_TRACK_COLOR
+                null -> Color.argb(255, 70, 70, 70)
+            }
         }
         canvas.drawArc(rect, START_ANGLE, SWEEP_ANGLE, false, trackPaint)
 
@@ -56,14 +67,14 @@ object GaugeIcon {
         val valuePaint = Paint(trackPaint).apply { this.color = color }
         canvas.drawArc(rect, START_ANGLE, (SWEEP_ANGLE * fraction).toFloat(), false, valuePaint)
 
-        if (peak != null) {
-            val tickFraction = ((peak - min) / (max - min)).coerceIn(0.0, 1.0)
+        fun tick(at: Double, color: Int, widthFactor: Float) {
+            val tickFraction = ((at - min) / (max - min)).coerceIn(0.0, 1.0)
             val angle = Math.toRadians((START_ANGLE + SWEEP_ANGLE * tickFraction).toDouble())
             val inner = radius - stroke
             val outer = radius + stroke * 0.6f
             val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.color = Color.WHITE
-                strokeWidth = stroke * 0.28f
+                this.color = color
+                strokeWidth = stroke * widthFactor
                 strokeCap = Paint.Cap.ROUND
             }
             canvas.drawLine(
@@ -72,6 +83,12 @@ object GaugeIcon {
                 tickPaint,
             )
         }
+
+        // Same marks as the phone gauge: faint limit ticks, white outright peak, blue short-term peak.
+        warningThreshold?.let { tick(it, Color.argb(140, 0xFF, 0xB3, 0x00), 0.1f) }
+        criticalThreshold?.let { tick(it, Color.argb(140, 0xE5, 0x39, 0x35), 0.1f) }
+        peak?.let { tick(it, Color.WHITE, 0.28f) }
+        if (!stale) shortPeak?.let { tick(it, SHORT_PEAK_COLOR, 0.23f) }
 
         val text = formatValue(value, decimals) + valueSuffix(unit)
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

@@ -120,6 +120,15 @@ class Elm327LiveDataSourceTest {
 
     private fun String.hexBytes() = ByteArray(length / 2) { substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
+    @Test
+    fun replyTimingSeparatesFixedAndSizeDependentTime() {
+        val transferBound = replyTimingVerdict(listOf(11 to 45L, 18 to 50L, 200 to 180L, 208 to 186L))
+        kotlin.test.assertContains(transferBound, "mostly transfer")
+        val ecuBound = replyTimingVerdict(listOf(11 to 170L, 18 to 172L, 200 to 195L, 208 to 198L))
+        kotlin.test.assertContains(ecuBound, "mostly ECU/turnaround")
+        assertEquals("not enough tables answered to compare", replyTimingVerdict(listOf(208 to 200L)))
+    }
+
     private fun obdField(id: String, pids: List<Int>, decode: DecodeSpec, fallback: FieldFallback? = null) = FieldDefinition(
         id = id,
         label = id,

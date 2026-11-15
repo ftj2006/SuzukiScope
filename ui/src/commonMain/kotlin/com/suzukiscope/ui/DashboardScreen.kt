@@ -104,6 +104,8 @@ fun DashboardScreen(
                         criticalThreshold = field.criticalThreshold,
                         decimals = field.decimals,
                         stale = field.id in staleFields,
+                        shortPeak = { viewModel.markers.shortPeak(field.id) },
+                        limitHit = { viewModel.markers.limitHit(field.id) },
                     )
                 }
             }

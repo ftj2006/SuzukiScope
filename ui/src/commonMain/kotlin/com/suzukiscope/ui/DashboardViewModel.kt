@@ -107,6 +107,9 @@ class DashboardViewModel(
     private val fieldsInCritical = HashSet<String>()
     private var lastReadingAtMs = currentTimeMillis()
 
+    /** Short-term peaks and recent limit hits, drawn the same on the phone and in Android Auto. */
+    val markers = GaugeMarkers()
+
     // Emits once per field newly crossing into critical, for the UI to flash the screen on.
     private val _criticalEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val criticalEvents: SharedFlow<Unit> = _criticalEvents.asSharedFlow()
@@ -144,6 +147,9 @@ class DashboardViewModel(
                     clearNoDataMark(reading.fieldId)
                 }
                 checkCritical(reading.fieldId, reading.value)
+                registry.get(reading.fieldId)?.let { field ->
+                    markers.record(field.id, reading.value, field.gaugeMax - field.gaugeMin, field.warningThreshold, field.criticalThreshold)
+                }
                 // Peak = highest value since connecting (or since recording started), shown on every gauge.
                 val peak = _peaks.value[reading.fieldId]
                 if (peak == null || reading.value > peak) {
@@ -327,6 +333,7 @@ class DashboardViewModel(
             _values.value = emptyMap()
             _history.value = emptyMap()
             _peaks.value = emptyMap()
+            markers.clear()
             _isLogging.value = false
         }
     }
@@ -344,6 +351,7 @@ class DashboardViewModel(
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
         _peaks.value = emptyMap()
+        markers.clear()
         fieldsInCritical.clear()
         fieldReadingAtMs.clear()
         lastReadingAtMs = currentTimeMillis()
@@ -525,6 +533,11 @@ class DashboardViewModel(
     suspend fun probeEcuTables() = withPollingPaused("Table probe") { liveSource, progress ->
         val summary = liveSource.probeLocalTables { index, total -> progress("Probing ECU table $index/$total") }
         "Table probe done: $summary. Export the connection log to share it."
+    }
+
+    /** Pauses polling and times small vs large table replies (see [Elm327LiveDataSource.timeTableReplies]). */
+    suspend fun timeTableReplies() = withPollingPaused("Reply timing") { liveSource, progress ->
+        "Reply timing: " + liveSource.timeTableReplies(progress)
     }
 
     /** Pauses polling, reads every known engine table and saves them to a dated file. */

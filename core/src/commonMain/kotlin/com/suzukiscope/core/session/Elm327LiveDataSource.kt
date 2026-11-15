@@ -20,6 +20,25 @@ import kotlinx.coroutines.launch
 /** Engine ECU tables read in one pass: [tables] holds the successful replies, [text] the annotated file contents. */
 class EcuSnapshot(val tables: Map<Int, ByteArray>, val text: String)
 
+/** Fits ms = fixed + perByte x bytes over (bytes, median ms) points and says which part dominates a 208-byte 21 00 reply. */
+internal fun replyTimingVerdict(points: List<Pair<Int, Long>>): String {
+    if (points.size < 2 || points.map { it.first }.distinct().size < 2) return "not enough tables answered to compare"
+    val n = points.size.toDouble()
+    val meanX = points.sumOf { it.first.toDouble() } / n
+    val meanY = points.sumOf { it.second.toDouble() } / n
+    val perByte = points.sumOf { (it.first - meanX) * (it.second - meanY) } / points.sumOf { (it.first - meanX) * (it.first - meanX) }
+    val fixed = meanY - perByte * meanX
+    val sizePart = (perByte * 208).coerceAtLeast(0.0)
+    val share = sizePart / (fixed.coerceAtLeast(0.0) + sizePart).coerceAtLeast(1.0)
+    val conclusion = when {
+        share >= 0.5 -> "mostly transfer: a faster adapter (e.g. OBDLink MX+) should cut this noticeably"
+        share < 0.25 -> "mostly ECU/turnaround: a faster adapter would help little"
+        else -> "mixed: a faster adapter would help somewhat"
+    }
+    return "%.0f ms fixed + %.2f ms/byte; 21 00 (208 bytes) = %.0f ms, %.0f%% size-dependent; %s"
+        .format(fixed, perByte, fixed + sizePart, share * 100, conclusion)
+}
+
 /**
  * Real hardware [LiveDataSource]: talks to an ELM327 adapter over any [Transport]
  * (Bluetooth SPP, Wi-Fi, serial) using the diagnostic session parameters in each
@@ -267,6 +286,43 @@ class Elm327LiveDataSource(
     }
 
     /**
+     * Times small and large tables in turn to split each reply into a fixed part (ECU, adapter turnaround)
+     * and a part that grows with size (adapter-to-phone transfer). Returns a one-line verdict.
+     */
+    suspend fun timeTableReplies(onProgress: (String) -> Unit): String {
+        check(protocol == Elm327Protocol.CAN_11BIT_500K) { "Reply timing needs a CAN connection" }
+        ensureCanHeader(ENGINE_ECU)
+        val sizes = HashMap<Int, Int>()
+        val times = HashMap<Int, MutableList<Long>>()
+        for (round in 1..TIMING_ROUNDS) {
+            onProgress("Timing replies, round $round/$TIMING_ROUNDS")
+            for (id in TIMING_TABLES) {
+                if (client.transportBroken) break
+                val start = currentTimeMillis()
+                val reply = runCatching { client.requestHex(byteArrayOf(0x21, id.toByte()), 1500, checkReply = true) }.getOrNull()
+                val ms = currentTimeMillis() - start
+                if (reply != null && reply.size >= 2 && reply[0] == 0x61.toByte()) {
+                    sizes[id] = reply.size - 2
+                    times.getOrPut(id) { ArrayList() } += ms
+                }
+                delay(50)
+            }
+        }
+        val medians = times.mapValues { (_, list) -> list.sorted()[list.size / 2] }
+        for (id in TIMING_TABLES) {
+            val list = times[id] ?: continue
+            ioLog.append(
+                IoDirection.RECEIVED,
+                "REPLY TIMING 21%02X %d bytes: median %d ms, min %d, max %d (%d replies)"
+                    .format(id, sizes[id], medians[id], list.min(), list.max(), list.size),
+            )
+        }
+        val verdict = replyTimingVerdict(medians.map { (id, ms) -> sizes.getValue(id) to ms })
+        ioLog.append(IoDirection.RECEIVED, "REPLY TIMING $verdict")
+        return verdict
+    }
+
+    /**
      * One-off probe of every engine ECU local data table (`21 00`-`21 FF`), logging each one's
      * reply size and time, to look for a table smaller than `21 00` that could be polled faster.
      * Returns a one-line summary. Only meaningful on CAN.
@@ -434,6 +490,9 @@ class Elm327LiveDataSource(
         // ELM327 accepts up to six PIDs in one mode 01 request on CAN.
         const val MAX_PIDS_PER_REQUEST = 6
         const val BACKGROUND_SNAPSHOT_EVERY_CYCLES = 4
+        const val TIMING_ROUNDS = 10
+        // Small to large: 21 41 (~11 bytes), 21 34 (~18), 21 35 (~25), 21 3A (~200 stored), 21 00 (~208 live).
+        val TIMING_TABLES = listOf(0x41, 0x34, 0x35, 0x3A, 0x00)
 
         // Data bytes per standard OBD-II mode 01 PID (SAE J1979), needed to split batched replies.
         val PID_DATA_LENGTHS = mapOf(

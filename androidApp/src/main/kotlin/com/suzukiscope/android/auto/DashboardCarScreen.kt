@@ -140,6 +140,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                                     flashOn = !flashOn
                                     dirty = true
                                 }
+                                // Short-term peaks fall and halos expire between readings too.
+                                if (AppState.dashboardViewModel.markers.animating()) dirty = true
                                 if (dirty) {
                                     dirty = false
                                     if (invalidatedAt == 0L) invalidatedAt = android.os.SystemClock.elapsedRealtime()
@@ -174,6 +176,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
         val staleFields = AppState.dashboardViewModel.staleFields.value
         val isLogging = AppState.dashboardViewModel.isLogging.value
         val isConnected = AppState.dashboardViewModel.isUsingHardwareSource()
+        val markers = AppState.dashboardViewModel.markers
+        val now = com.suzukiscope.core.session.currentTimeMillis()
 
         val itemListBuilder = ItemList.Builder()
         val gaugeItems = fields.map { field ->
@@ -191,6 +195,8 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                         field.criticalThreshold,
                         field.decimals,
                         field.id in staleFields,
+                        markers.shortPeak(field.id, now),
+                        markers.limitHit(field.id, now),
                     ),
                     GridItem.IMAGE_TYPE_LARGE,
                 )
