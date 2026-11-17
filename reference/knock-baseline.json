@@ -10,7 +10,7 @@
  "rpm_bin": 500,
  "map_bin_kpa": 20,
  "sources": [
-  "/mnt/c/Users/qxz1pb8/OneDrive - BMW Group/LOGS/Logs/pj-suzukiscope-connection-log-20261117-160038.txt"
+  "pj-suzukiscope-connection-log-20261117-160038.txt"
  ],
  "cells": {
   "2/1000/80": {

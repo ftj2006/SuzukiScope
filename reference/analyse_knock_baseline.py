@@ -7,7 +7,7 @@ Input: SuzukiScope connection logs (debug log on) or raw-reply files
     python3 reference/analyse_knock_baseline.py --out reference/knock-baseline.json LOG [LOG...]
     python3 reference/analyse_knock_baseline.py --baseline reference/knock-baseline.json LOG   # compare a run
 """
-import argparse, json, re, statistics as st
+import argparse, json, os, re, statistics as st
 
 # RPM per km/h for each gear (6MT), learned from the 2026-11-17 drive.
 GEARS = {1: 127.0, 2: 72.5, 3: 53.8, 4: 40.8, 5: 32.3, 6: 28.0}
@@ -105,7 +105,7 @@ if __name__ == "__main__":
             print("t %d gear %d rpm %d map %d adv %.1f (baseline %.1f) iatB %d" % e)
     else:
         cells = build(samples)
-        doc = dict(gears_rpm_per_kmh=GEARS, rpm_bin=RPM_BIN, map_bin_kpa=MAP_BIN, sources=a.logs, cells=cells)
+        doc = dict(gears_rpm_per_kmh=GEARS, rpm_bin=RPM_BIN, map_bin_kpa=MAP_BIN, sources=[os.path.basename(p) for p in a.logs], cells=cells)
         if a.out:
             json.dump(doc, open(a.out, "w"), indent=1)
         for k, v in cells.items():
