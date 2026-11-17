@@ -1,5 +1,1 @@
-- Settings > Diagnostics: "Save raw replies with recordings" saves every raw ECU reply next to the CSV
-- Clear codes: snapshot before clearing is optional; none after clearing
-- Recovers from adapter timeouts, so snapshots no longer come back cut short
-- Leaving the screen no longer cancels a clear, snapshot or field test
-- Faster cycles: no re-addressing for replies already read
+- New "Gear" field (off by default): shows the gear from RPM and speed, 0 = neutral/clutch/changing gear
