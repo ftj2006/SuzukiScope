@@ -53,6 +53,9 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         ioLog?.append(IoDirection.SENT, cmd)
         try {
             transport.write((cmd + "\r").encodeToByteArray())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            lateReplyPending = true
+            throw e
         } catch (e: Exception) {
             transportBroken = true
             ioLog?.append(IoDirection.ERROR, "write failed for '$cmd': ${describeError(e)}")
@@ -69,13 +72,13 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
             transport.readUntil('>'.code.toByte(), timeoutMs)
         } catch (e: Exception) {
             // A cancelled read (polling stopped) leaves the reply in flight, the link itself is fine.
-            if (isTimeout(e) || e is kotlinx.coroutines.CancellationException) lateReplyPending = true else transportBroken = true
+            if (isTimeout(e) || e is kotlinx.coroutines.CancellationException) markStateUncertain() else transportBroken = true
             ioLog?.append(IoDirection.ERROR, "no response to '$cmd' within ${timeoutMs}ms: ${describeError(e)}")
             throw e
         }
         val rawText = raw.decodeToString()
         // Transports that return a partial read on timeout instead of throwing.
-        if (!rawText.endsWith('>')) lateReplyPending = true
+        if (!rawText.endsWith('>')) markStateUncertain()
         ioLog?.append(IoDirection.RECEIVED, rawText.replace("\r", "\\r").replace("\n", "\\n"))
         return cleanResponse(rawText)
     }
@@ -83,15 +86,30 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
     private fun isTimeout(e: Throwable): Boolean =
         e::class.simpleName.orEmpty().contains("Timeout") || e.message.orEmpty().contains("timed out", ignoreCase = true)
 
+    // While a timed-out request is still running, the adapter swallows the next command as an interrupt.
+    private fun markStateUncertain() {
+        lateReplyPending = true
+        canTimingSet = false
+        stateUncertain = true
+    }
+
+    private var stateUncertain = false
+
+    /** True (once) after a timeout or cancel: the adapter may have ignored header/filter commands since. */
+    fun takeStateUncertain(): Boolean = stateUncertain.also { stateUncertain = false }
+
     private suspend fun drainLateReply() {
+        // The adapter can still be waiting on the bus for up to a second after our timeout.
+        var waitMs = LATE_REPLY_FIRST_WAIT_MS
         repeat(5) {
             val stale = try {
-                transport.readUntil('>'.code.toByte(), LATE_REPLY_WAIT_MS)
+                transport.readUntil('>'.code.toByte(), waitMs)
             } catch (e: Exception) {
                 return
             }
             if (stale.isEmpty()) return
             ioLog?.append(IoDirection.RECEIVED, "discarded late reply: " + stale.decodeToString().replace("\r", "\\r").replace("\n", "\\n"))
+            waitMs = LATE_REPLY_WAIT_MS
         }
     }
 
@@ -140,11 +158,11 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
 
     /** ISO 14230/KWP: set the physical/functional target header ELM327 will use for the next request. */
     suspend fun setHeader(headerBytes: List<Int>) {
-        sendCommand("ATSH" + headerBytes.joinToString("") { "%02X".format(it) })
+        sendSetting("ATSH" + headerBytes.joinToString("") { "%02X".format(it) })
     }
 
     suspend fun setCanHeader(targetAddress: Int) {
-        sendCommand("ATSH%03X".format(targetAddress and 0x7FF))
+        sendSetting("ATSH%03X".format(targetAddress and 0x7FF))
     }
 
     // Flow-control data/mode and the reply timeout don't depend on the module, so they're sent once per init.
@@ -152,15 +170,21 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
 
     suspend fun configureCan(targetAddress: Int) {
         val requestId = targetAddress and 0x7FF
-        sendCommand("ATSH%03X".format(requestId))
-        sendCommand("ATCRA%03X".format(canResponseId(requestId)))
-        sendCommand("ATFCSH%03X".format(requestId))
+        sendSetting("ATSH%03X".format(requestId))
+        sendSetting("ATCRA%03X".format(canResponseId(requestId)))
+        sendSetting("ATFCSH%03X".format(requestId))
         if (canTimingSet) return
-        sendCommand("ATFCSD300000")
-        sendCommand("ATFCSM1")
+        sendSetting("ATFCSD300000")
+        sendSetting("ATFCSM1")
         // 64 ms end-of-reply wait; ATST08 (32 ms) gave no speed-up and more timeouts.
-        sendCommand("ATST10")
+        sendSetting("ATST10")
         canTimingSet = true
+    }
+
+    // A setting answered with anything but OK (e.g. a bare prompt after an interrupt) was not applied.
+    private suspend fun sendSetting(command: String) {
+        if (sendCommand(command).contains("OK")) return
+        sendCommand(command)
     }
 
     /**
@@ -213,6 +237,7 @@ class Elm327Client(private val transport: Transport, private val ioLog: Elm327Io
         } and 0x7FF
 
         private const val LATE_REPLY_WAIT_MS = 150L
+        private const val LATE_REPLY_FIRST_WAIT_MS = 1500L
         private const val MAX_STALE_REPLIES = 4
         // Mode 01 (PID), 10 (session), 1A (identification), 21 (local id), 2C (dynamic id) echo their first parameter.
         private val ECHOING_SERVICES = setOf(0x01, 0x10, 0x1A, 0x21, 0x2C)

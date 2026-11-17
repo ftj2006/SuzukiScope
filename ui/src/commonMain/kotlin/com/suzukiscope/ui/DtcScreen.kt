@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -25,7 +26,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +34,6 @@ import com.suzukiscope.core.dtc.DtcCode
 import com.suzukiscope.core.dtc.DtcSession
 import com.suzukiscope.core.dtc.describeDtcStatus
 import com.suzukiscope.core.ecu.EcuTables
-import kotlinx.coroutines.launch
 
 /**
  * Fault codes: the engine ECU (read every way it might answer, with a confirmed clear), the stored
@@ -47,7 +46,6 @@ fun DtcScreen(
     modifier: Modifier = Modifier,
     faultHistory: List<EcuTables.FaultEntry> = emptyList(),
 ) {
-    val scope = rememberCoroutineScope()
     val busy by viewModel.busy.collectAsState()
     val engineResults by viewModel.engineResults.collectAsState()
     val engineStatus by viewModel.engineStatus.collectAsState()
@@ -69,18 +67,25 @@ fun DtcScreen(
     val selected = visibleModules.getOrNull(selectedIndex)
 
     if (confirmClear) {
+        var snapshotFirst by remember { mutableStateOf(true) }
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text("Clear engine codes?") },
             text = {
-                Text(
-                    "An ECU snapshot is saved before and after clearing. Clearing also erases freeze-frame data and " +
-                        "resets the readiness monitors, which then need a full drive cycle before an emissions or " +
-                        "roadworthy test will pass. Codes for faults that are still present will come back.",
-                )
+                Column {
+                    Text(
+                        "Clearing also erases freeze-frame data and resets the readiness monitors, which then need a " +
+                            "full drive cycle before an emissions or roadworthy test will pass. Codes for faults that " +
+                            "are still present will come back.",
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                        Checkbox(checked = snapshotFirst, onCheckedChange = { snapshotFirst = it })
+                        Text("Save an ECU snapshot first")
+                    }
+                }
             },
             confirmButton = {
-                TextButton(onClick = { confirmClear = false; scope.launch { viewModel.clearEngine() } }) { Text("Clear codes") }
+                TextButton(onClick = { confirmClear = false; viewModel.launch { clearEngine(snapshotFirst) } }) { Text("Clear codes") }
             },
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
         )
@@ -96,7 +101,7 @@ fun DtcScreen(
             onToggle = { engineExpanded = !engineExpanded },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                Button(onClick = { scope.launch { viewModel.readEngine() } }, enabled = !busy) { Text("Read codes") }
+                Button(onClick = { viewModel.launch { readEngine() } }, enabled = !busy) { Text("Read codes") }
                 OutlinedButton(
                     onClick = { confirmClear = true },
                     enabled = !busy && engineResults != null,
@@ -148,7 +153,7 @@ fun DtcScreen(
             onToggle = { modulesExpanded = !modulesExpanded },
         ) {
             ActionRow("Try every module to find which ones answer on this car", "Scan modules", enabled = !busy) {
-                scope.launch { viewModel.probeModules(otherModules) }
+                viewModel.launch { probeModules(otherModules) }
             }
             probeStatus?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
             ToggleRow("Show ${otherModules.size - answering.size} module(s) that didn't answer", showUnresponsive) {
@@ -167,7 +172,7 @@ fun DtcScreen(
                     }
                 }
                 Button(
-                    onClick = { selected?.let { scope.launch { viewModel.readCodes(it.targetAddress, it.isFunctionalAddress, it.isCan) } } },
+                    onClick = { selected?.let { viewModel.launch { readCodes(it.targetAddress, it.isFunctionalAddress, it.isCan) } } },
                     enabled = !busy && selected != null,
                     modifier = Modifier.padding(start = 8.dp),
                 ) { Text("Read") }

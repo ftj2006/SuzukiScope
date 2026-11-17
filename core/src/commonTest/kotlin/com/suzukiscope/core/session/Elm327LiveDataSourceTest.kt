@@ -112,6 +112,27 @@ class Elm327LiveDataSourceTest {
     }
 
     @Test
+    fun cachedRepliesDoNotReaddressTheAdapter() = runTest {
+        val requests = mutableListOf<String>()
+        val source = Elm327LiveDataSource(canAdapter(requests), Elm327Protocol.CAN_11BIT_500K)
+        source.connect()
+        fun table00(id: String, target: Int) = FieldDefinition(
+            id, id, "",
+            RequestSpec(targetAddress = target, mode = 0x21, params = listOf(0x00), responsePrefixBytes = 0, responseSuffixBytes = 0),
+            DecodeSpec(skipBytes = 2),
+        )
+        val engineA = table00("a", 0x7E0)
+        val abs = table00("b", 0x261)
+        val engineC = table00("c", 0x7E0)
+        source.beginCycle(listOf(engineA, abs, engineC))
+        source.poll(engineA)
+        source.poll(abs)
+        requests.clear()
+        assertEquals(42.0, source.poll(engineC))
+        assertEquals(emptyList(), requests)
+    }
+
+    @Test
     fun snapshotAnnotatesDecodedTables() = runTest {
         // Replies from the car's 2026-11-10 snapshot.
         val replies = mapOf(

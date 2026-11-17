@@ -84,6 +84,10 @@ class DashboardViewModel(
     private val _testDataEnabled = MutableStateFlow(false)
     val testDataEnabled: StateFlow<Boolean> = _testDataEnabled.asStateFlow()
     var testDataSettingSink: ((Boolean) -> Unit)? = null
+    private val _rawRepliesEnabled = MutableStateFlow(false)
+    val rawRepliesEnabled: StateFlow<Boolean> = _rawRepliesEnabled.asStateFlow()
+    var rawRepliesSettingSink: ((Boolean) -> Unit)? = null
+    private val rawReplies = ArrayList<String>()
 
     /** The car's diagnostic bus; only fields for this bus can be enabled, and connecting uses it. */
     private val _vehicleProtocol = MutableStateFlow(Elm327Protocol.CAN_11BIT_500K)
@@ -352,8 +356,10 @@ class DashboardViewModel(
         val wasRunning = pollJob != null
         stop()
         (source as? Elm327LiveDataSource)?.stopKeepAlive()
+        (source as? Elm327LiveDataSource)?.onRawReply = null
         source = newSource
         (newSource as? Elm327LiveDataSource)?.startKeepAlive(scope)
+        (newSource as? Elm327LiveDataSource)?.onRawReply = ::recordRawReply
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
         _values.value = emptyMap()
@@ -431,6 +437,20 @@ class DashboardViewModel(
         _testDataEnabled.value = enabled
         testDataSettingSink?.invoke(enabled)
     }
+
+    fun setRawRepliesEnabled(enabled: Boolean) {
+        _rawRepliesEnabled.value = enabled
+        rawRepliesSettingSink?.invoke(enabled)
+    }
+
+    @kotlin.jvm.Synchronized
+    private fun recordRawReply(timeMs: Long, module: String, request: String, reply: ByteArray) {
+        if (!_isLogging.value || !_rawRepliesEnabled.value) return
+        rawReplies += "$timeMs $module $request " + reply.joinToString("") { "%02X".format(it) }
+    }
+
+    @kotlin.jvm.Synchronized
+    private fun takeRawReplies(): List<String> = rawReplies.toList().also { rawReplies.clear() }
 
     /** Switches the vehicle bus; each bus remembers which of its fields were enabled. */
     fun setVehicleProtocol(protocol: Elm327Protocol) {
@@ -622,6 +642,11 @@ class DashboardViewModel(
         }
     }
 
+    /** Runs a diagnostic task in the app-wide scope, so leaving the screen doesn't cancel it mid-command. */
+    fun launch(block: suspend DashboardViewModel.() -> Unit) {
+        scope.launch { block() }
+    }
+
     /** Re-syncs [fields] after external registry changes (e.g. loading persisted config from disk). */
     fun refreshFields() {
         _fields.value = registry.fields
@@ -630,6 +655,7 @@ class DashboardViewModel(
     fun startLogging() {
         finishCurrentRun()
         recorder.clear()
+        takeRawReplies()
         _peaks.value = emptyMap()
         _sessionId.value = newSessionId()
         _isLogging.value = true
@@ -644,6 +670,10 @@ class DashboardViewModel(
     private fun finishCurrentRun() {
         val readings = recorder.readings()
         val id = _sessionId.value
+        val raw = takeRawReplies()
+        if (id != null && raw.isNotEmpty()) {
+            exportSink(listOf(ExportFile("pj-suzukiscope-raw-$id.txt", "# time_ms module request reply\n" + raw.joinToString("\n"))))
+        }
         if (id != null && readings.isNotEmpty() && _completedRuns.value.none { it.id == id }) {
             _completedRuns.value = _completedRuns.value + LoggingRun(id, readings)
             exportSink(listOf(ExportFile("pj-suzukiscope-run-$id.csv", recorder.toCsv(

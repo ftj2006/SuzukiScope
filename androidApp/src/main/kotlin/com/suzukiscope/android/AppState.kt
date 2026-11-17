@@ -83,6 +83,7 @@ object AppState {
         persistUnresponsiveModules = { keys -> dtcModulesFile?.let { runCatching { it.parentFile?.mkdirs(); it.writeText(keys.joinToString(",")) } } },
         busAccess = { block -> dashboardViewModel.withBusPaused(block) },
         snapshot = { suffix -> dashboardViewModel.snapshotWhilePaused(suffix) },
+        scope = scope,
     )
 
     private val _connectionStatus = MutableStateFlow("Simulated data")
@@ -180,7 +181,7 @@ object AppState {
     }
 
     /** Loads the debug-logs and test-data settings (off unless the user turned them on) and saves every change. */
-    fun initDebugLogs(file: File, testDataFile: File) {
+    fun initDebugLogs(file: File, testDataFile: File, rawRepliesFile: File) {
         dashboardViewModel.debugLogsSettingSink = { enabled ->
             AutoCrashLog.setEnabled(enabled)
             runCatching { file.parentFile?.mkdirs(); file.writeText(enabled.toString()) }
@@ -189,6 +190,10 @@ object AppState {
         dashboardViewModel.setTestDataEnabled(runCatching { testDataFile.readText().trim().toBoolean() }.getOrDefault(false))
         dashboardViewModel.testDataSettingSink = { enabled ->
             runCatching { testDataFile.parentFile?.mkdirs(); testDataFile.writeText(enabled.toString()) }
+        }
+        dashboardViewModel.setRawRepliesEnabled(runCatching { rawRepliesFile.readText().trim().toBoolean() }.getOrDefault(false))
+        dashboardViewModel.rawRepliesSettingSink = { enabled ->
+            runCatching { rawRepliesFile.parentFile?.mkdirs(); rawRepliesFile.writeText(enabled.toString()) }
         }
     }
 

@@ -28,7 +28,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +48,6 @@ import com.suzukiscope.core.layout.middleOutOrder
 import com.suzukiscope.core.layout.slotsForRow
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import kotlinx.coroutines.launch
 
 /**
  * Lets the user choose which configured fields appear on the dashboard, reorder them, and
@@ -76,9 +74,9 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     val visible = filtered.sortedByDescending { it.enabled }
     val debugLogsEnabled by viewModel.debugLogsEnabled.collectAsState()
     val testDataEnabled by viewModel.testDataEnabled.collectAsState()
+    val rawRepliesEnabled by viewModel.rawRepliesEnabled.collectAsState()
     val fieldProbeStatus by viewModel.fieldProbeStatus.collectAsState()
     val noDataCount = busFields.count { it.verifiedNoData && !it.enabled }
-    val coroutineScope = rememberCoroutineScope()
 
     editingField?.let { field ->
         ThresholdDialog(
@@ -133,18 +131,19 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
             SubHeading("Logging")
             ToggleRow("Save connection logs", debugLogsEnabled) { viewModel.setDebugLogsEnabled(it) }
             TextButton(onClick = { debugLogOpen = true }, enabled = debugLogsEnabled) { Text("View connection logs") }
+            ToggleRow("Save raw replies with recordings", rawRepliesEnabled) { viewModel.setRawRepliesEnabled(it) }
             SubHeading("Testing")
             ToggleRow("Show test data option", testDataEnabled) { viewModel.setTestDataEnabled(it) }
             ActionRow("Check which fields return data on this car", "Test all fields") {
-                coroutineScope.launch { viewModel.probeAllFieldsForData() }
+                viewModel.launch { probeAllFieldsForData() }
             }
             if (vehicleProtocol == Elm327Protocol.CAN_11BIT_500K) {
                 SubHeading("Engine ECU (engine running; live data pauses while these run)")
                 ActionRow("Save every ECU table to a dated file", "Save snapshot") {
-                    coroutineScope.launch { viewModel.saveEcuSnapshot() }
+                    viewModel.launch { saveEcuSnapshot() }
                 }
                 ActionRow("Log the size and time of tables 21 00\u201321 FF", "Probe tables") {
-                    coroutineScope.launch { viewModel.probeEcuTables() }
+                    viewModel.launch { probeEcuTables() }
                 }
             }
             fieldProbeStatus?.let {

@@ -279,11 +279,11 @@ class Elm327LiveDataSource(
     }
 
     private suspend fun pollRaw(field: FieldDefinition): Double {
-        ensureHeader(field)
         val requestPayload = FieldCodec.buildRequestPayload(field.request)
         val cacheKey = "${field.request.targetAddress}:${field.request.isFunctionalAddress}:" +
             requestPayload.joinToString("") { "%02X".format(it) }
         val rawAnswer = (requestCache[cacheKey] ?: run {
+            ensureHeader(field)
             // Under load the 210-byte 21 00 reply can take 500-900 ms; a dropped reply loses the peak it carried.
             val result = runCatching { timedRequest(requestPayload, if (protocol == Elm327Protocol.CAN_11BIT_500K) 1500 else 1000) }
             requestCache[cacheKey] = result
@@ -345,6 +345,7 @@ class Elm327LiveDataSource(
     }
 
     private suspend fun ensureHeader(field: FieldDefinition) {
+        if (client.takeStateUncertain()) resetBusState()
         if (protocol == Elm327Protocol.CAN_11BIT_500K) {
             ensureCanHeader(if (field.request.isFunctionalAddress) 0x7DF else field.request.targetAddress)
         } else {
@@ -376,6 +377,7 @@ class Elm327LiveDataSource(
     }
 
     private suspend fun ensureCanHeader(target: Int) {
+        if (client.takeStateUncertain()) resetBusState()
         val header = listOf(target)
         if (header == lastHeader) return
         if (canConfiguration != target) {
@@ -387,13 +389,22 @@ class Elm327LiveDataSource(
         lastHeader = header
     }
 
+    /** Called with (time ms, module, request hex, reply bytes) for every live-data reply. */
+    var onRawReply: ((Long, String, String, ByteArray) -> Unit)? = null
+
     private suspend fun timedRequest(payload: ByteArray, timeoutMs: Long): ByteArray {
         val key = payload.joinToString("") { "%02X".format(it) }
         val stats = requestStats.getOrPut(key) { RequestStats() }
         val start = currentTimeMillis()
         lastRequestAtMs = start
         try {
-            return client.requestHex(payload, timeoutMs, checkReply = protocol == Elm327Protocol.CAN_11BIT_500K)
+            val reply = client.requestHex(payload, timeoutMs, checkReply = protocol == Elm327Protocol.CAN_11BIT_500K)
+            onRawReply?.let { sink ->
+                val header = lastHeader.orEmpty()
+                val module = if (header.size == 1) "%03X".format(header[0]) else header.getOrNull(1)?.let { "%02X".format(it) } ?: "?"
+                sink(currentTimeMillis(), module, key, reply)
+            }
+            return reply
         } catch (e: Exception) {
             stats.failures++
             throw e

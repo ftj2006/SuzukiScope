@@ -7,7 +7,11 @@ import com.suzukiscope.core.dtc.DtcRefusedException
 import com.suzukiscope.core.dtc.DtcSession
 import com.suzukiscope.core.elm327.Elm327Client
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +25,13 @@ class DtcViewModel(
     private val busAccess: suspend (suspend (heartbeat: () -> Unit) -> Unit) -> Unit = { it {} },
     /** Saves an engine snapshot with the given file-name suffix (bus already paused); returns the file name. */
     private val snapshot: suspend (suffix: String) -> String = { error("snapshots are not available") },
+    // Outlives the screen, so leaving the tab doesn't cancel a clear half-way through.
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
+    fun launch(block: suspend DtcViewModel.() -> Unit) {
+        scope.launch { block() }
+    }
+
     private var session: DtcSession? = null
     private var ioLog: (String) -> Unit = {}
     private var heartbeat: () -> Unit = {}
@@ -95,26 +105,25 @@ class DtcViewModel(
         }
     }
 
-    /** Snapshots the engine tables, clears, then snapshots again so the odometer, trims and history refresh. */
-    suspend fun clearEngine() = withSession({ _engineStatus.value = "Connect to the adapter first" }) { s ->
-        _engineStatus.value = "Saving a snapshot before clearing..."
-        val before = try {
-            snapshot("-before-clear")
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            _engineStatus.value = "Not cleared: the snapshot before clearing failed (${DtcSession.reason(e)})"
-            return@withSession
+    /** Clears the engine codes, optionally saving an engine snapshot first, then re-reads them. */
+    suspend fun clearEngine(snapshotFirst: Boolean) = withSession({ _engineStatus.value = "Connect to the adapter first" }) { s ->
+        val before = if (!snapshotFirst) null else {
+            _engineStatus.value = "Saving a snapshot before clearing..."
+            try {
+                snapshot("-before-clear")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _engineStatus.value = "Not cleared: the snapshot before clearing failed (${DtcSession.reason(e)})"
+                return@withSession
+            }
         }
         try {
             _engineStatus.value = "Clearing engine codes..."
             val outcome = s.clearEngine()
             delay(CLEAR_SETTLE_MS)
-            _engineStatus.value = "Saving a snapshot after clearing..."
-            val after = runCatching { snapshot("-after-clear") }
             _engineResults.value = s.readEngine()
-            _engineStatus.value = "$outcome. Snapshots: $before, " +
-                after.fold({ it }, { "after-clear snapshot failed (${DtcSession.reason(it)})" })
+            _engineStatus.value = outcome + (before?.let { ". Snapshot: $it" } ?: "")
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
