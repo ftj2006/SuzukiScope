@@ -28,6 +28,16 @@ class FieldCodecTest {
     }
 
     @Test
+    fun decodesGearFromRpmAndSpeed() {
+        val spec = DecodeSpec(skipBytes = 0, byteLength = 2, scale = 0.25, gearSpeedSkipBytes = 2, gearRatios = listOf(127.0, 72.5, 53.8, 40.8, 32.3, 28.0))
+        fun payload(rpm: Int, kmh: Int) = byteArrayOf(((rpm * 4) shr 8).toByte(), (rpm * 4).toByte(), kmh.toByte())
+        assertEquals(5.0, FieldCodec.decode(spec, payload(3634, 113)))
+        assertEquals(2.0, FieldCodec.decode(spec, payload(3380, 47)))
+        assertEquals(0.0, FieldCodec.decode(spec, payload(800, 0)))
+        assertEquals(0.0, FieldCodec.decode(spec, payload(3000, 65)))
+    }
+
+    @Test
     fun decodesTwoByteScaledValue() {
         val spec = DecodeSpec(skipBytes = 2, byteLength = 2, scale = 0.25)
         val payload = byteArrayOf(0x21, 0x0C, 0x1F, 0x40) // 0x1F40 = 8000 * 0.25 = 2000

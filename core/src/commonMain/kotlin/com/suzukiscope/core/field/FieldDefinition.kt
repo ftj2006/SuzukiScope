@@ -88,4 +88,7 @@ data class DecodeSpec(
     /** If set, only [bitCount] bits starting at this bit (0 = least significant) are used, before scale/offset. */
     val bit: Int? = null,
     val bitCount: Int = 1,
+    /** Gear indicator: the decoded value is RPM, divided by the speed byte here; matched to [gearRatios] (RPM per km/h). */
+    val gearSpeedSkipBytes: Int? = null,
+    val gearRatios: List<Double>? = null,
 )

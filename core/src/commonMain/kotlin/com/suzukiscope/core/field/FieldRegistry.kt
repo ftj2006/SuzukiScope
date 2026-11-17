@@ -262,6 +262,24 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     decimals = 0,
                 ),
                 FieldDefinition(
+                    id = "engine.gear",
+                    label = "Gear",
+                    unit = "",
+                    // RPM ÷ km/h per gear (6MT), learned from the 2026-11-17 drive; 0 = neutral, clutch or changing gear.
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(
+                        skipBytes = 37,
+                        byteLength = 2,
+                        scale = 0.25,
+                        gearSpeedSkipBytes = 42,
+                        gearRatios = listOf(127.0, 72.5, 53.8, 40.8, 32.3, 28.0),
+                    ),
+                    gaugeMin = 0.0,
+                    gaugeMax = 6.0,
+                    decimals = 0,
+                    enabled = false,
+                ),
+                FieldDefinition(
                     id = "engine.battery_voltage",
                     label = "Battery Voltage",
                     unit = "V",
