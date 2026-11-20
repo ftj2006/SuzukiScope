@@ -1,2 +1,1 @@
-- Bluetooth device selection now connects immediately; the selected adapter is remembered for reconnects
-- New "Gear" field (off by default): shows the gear from RPM and speed, 0 = neutral/clutch/changing gear
+- Bank 1 and Bank 2 channel fields now include distinct channel letters and byte positions; fuel-trim roles remain unconfirmed

@@ -43,8 +43,8 @@ android {
         applicationId = "za.co.pj.szviewer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 78
-        versionName = "1.6.13-alpha"
+        versionCode = 79
+        versionName = "1.6.14-alpha"
     }
 
     buildTypes {

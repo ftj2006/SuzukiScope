@@ -32,7 +32,7 @@ Each value is marked **Known** (confirmed against the car), **Suspected** (stron
 | Start log (last 100 starts, newest first) | `21 3A`, one byte per start (+`FF`) | `0D 0D 0D 0E…` | `0E 0D 0D 0D…` | `0E 0E 0D 0D…` | `0E 0F 0D 0E 0E 0E…` | One new entry per start, the rest shift along; values 13–15, one entry `8D` (13 + flag) |
 | Stored fault history (10 slots) | `21 40`–`21 49` | unchanged | unchanged | unchanged | unchanged | Codes, RPM, speed, load, voltage, pedal and baro decode sensibly (see below) |
 | ECU identity | `21 D0` | – | – | – | – | Bosch MED17, software GS_248_0167 |
-| Live trims (bank 1, three fields) | `21 00` offsets 19, 20, 23 | – | +4.7 / −6.3 / −1.6 % | 0 / −1.6 / −1.6 % | −3.1 / −2.3 / −5.5 % | Same fields SZ Viewer shows; which is short-term vs long-term is still open |
+| Live Bank 1 channels A/B/C | `21 00` bytes 17, 18, 21 (response offsets 19, 20, 23 including `61 00`) | – | +4.7 / −6.3 / −1.6 % | 0 / −1.6 / −1.6 % | −3.1 / −2.3 / −5.5 % | Percent-encoded values; fuel-trim interpretation and short-/long-term mapping are unconfirmed |
 
 ## Suspected
 
