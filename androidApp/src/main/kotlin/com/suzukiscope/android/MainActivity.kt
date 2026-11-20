@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
                                         supportingContent = { Text(device.address) },
                                         modifier = androidx.compose.ui.Modifier.clickable {
                                             bluetoothDeviceChoices = emptyList()
-                                            AppState.selectBluetooth(BluetoothSppTransport(device))
+                                            lifecycleScope.launch { AppState.connectBluetooth(BluetoothSppTransport(device)) }
                                         },
                                     )
                                 }
@@ -233,7 +233,7 @@ class MainActivity : ComponentActivity() {
                 devices.isEmpty() -> AppState.setStatus(
                     "No paired Bluetooth devices found — pair your ELM327 adapter in Android Bluetooth settings first",
                 )
-                devices.size == 1 -> AppState.selectBluetooth(BluetoothSppTransport(devices.first()))
+                devices.size == 1 -> lifecycleScope.launch { AppState.connectBluetooth(BluetoothSppTransport(devices.first())) }
                 else -> bluetoothDeviceChoices = devices
             }
         }

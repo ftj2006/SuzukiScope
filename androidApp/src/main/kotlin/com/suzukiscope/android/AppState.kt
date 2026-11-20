@@ -303,7 +303,6 @@ object AppState {
                 }
                 if (device != null) {
                     val transport = BluetoothSppTransport(device)
-                    selectBluetooth(transport)
                     if (!connectBluetooth(transport)) {
                         _reconnectPrompt.value = "Could not reconnect to Bluetooth adapter '$address' automatically."
                     }
@@ -395,6 +394,10 @@ object AppState {
     }
 
     suspend fun connectBluetooth(transport: Transport): Boolean {
+        dashboardViewModel.stopTestData()
+        selectedTransport = transport
+        lastWifiSsid = null
+        waitingForSsid = false
         reconnectFactory = { transport }
         _connectionStatus.value = "Connecting to Bluetooth adapter..."
         return connect(transport)
@@ -482,18 +485,6 @@ object AppState {
         val config = _wifiConfig.value
         _connectionStatus.value = "Wi-Fi selected: ${config.host}:${config.port}" +
             (config.lockedSsid?.let { " on '$it'" } ?: "")
-    }
-
-    fun selectBluetooth(transport: Transport) {
-        dashboardViewModel.stopTestData()
-        // Otherwise the watchdog keeps retrying (or waiting for) the previous Wi-Fi adapter.
-        if (selectedTransport is WifiTransport || waitingForSsid) {
-            reconnectFactory = null
-            waitingForSsid = false
-            if (dashboardViewModel.currentTransportName().startsWith("wifi://")) scope.launch { dashboardViewModel.disconnectHardware() }
-        }
-        selectedTransport = transport
-        _connectionStatus.value = "Bluetooth selected: ${transport.name}"
     }
 
     suspend fun toggleConnection() {
