@@ -486,6 +486,12 @@ object AppState {
 
     fun selectBluetooth(transport: Transport) {
         dashboardViewModel.stopTestData()
+        // Otherwise the watchdog keeps retrying (or waiting for) the previous Wi-Fi adapter.
+        if (selectedTransport is WifiTransport || waitingForSsid) {
+            reconnectFactory = null
+            waitingForSsid = false
+            if (dashboardViewModel.currentTransportName().startsWith("wifi://")) scope.launch { dashboardViewModel.disconnectHardware() }
+        }
         selectedTransport = transport
         _connectionStatus.value = "Bluetooth selected: ${transport.name}"
     }
@@ -589,7 +595,7 @@ object AppState {
                     if (ssid == null && unavailable != null && _connectionStatus.value.startsWith("Connected: WiFi")) {
                         _connectionStatus.value = "Connected: WiFi ($unavailable)"
                     }
-                } else if (!locked.isNullOrBlank() && ssid != null && ssid != lastWarnedWrongSsid) {
+                } else if (selectedTransport is WifiTransport && !locked.isNullOrBlank() && ssid != null && ssid != lastWarnedWrongSsid) {
                     // Not connected yet — let the driver know up front they're on the wrong
                     // network, since connect() will otherwise silently refuse to even try.
                     lastWarnedWrongSsid = ssid

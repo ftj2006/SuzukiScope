@@ -29,7 +29,7 @@ fun HistoryScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) 
     LazyColumn(modifier.fillMaxSize().padding(12.dp)) {
         items(fields.filter { it.enabled }, key = { it.id }) { field ->
             Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                Text("${field.label} (${field.unit})", style = MaterialTheme.typography.titleSmall)
+                Text(if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})", style = MaterialTheme.typography.titleSmall)
                 HistoryChart(
                     values = history[field.id].orEmpty(),
                     min = field.gaugeMin,

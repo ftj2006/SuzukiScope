@@ -278,7 +278,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                             },
                     )
                     Text(
-                        "${field.label} (${field.unit})",
+                        if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})",
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
                     IconButton(onClick = { editingField = field }, modifier = Modifier.width(36.dp)) {
