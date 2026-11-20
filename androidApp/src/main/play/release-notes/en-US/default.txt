@@ -1,1 +1,2 @@
 - Bank 1 and Bank 2 channel fields now include distinct channel letters and byte positions; fuel-trim roles remain unconfirmed
+- Configure fields shows a compact module badge on each field row

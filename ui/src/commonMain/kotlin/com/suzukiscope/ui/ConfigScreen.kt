@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -279,8 +281,21 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                     )
                     Text(
                         if (field.unit.isBlank()) field.label else "${field.label} (${field.unit})",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
+                    Surface(
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.surfaceVariant,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                    ) {
+                        Text(
+                            fieldModuleIndicator(field),
+                            style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                        )
+                    }
                     IconButton(onClick = { editingField = field }, modifier = Modifier.width(36.dp)) {
                         Text("\u26A0") // warning-triangle icon for threshold editing
                     }

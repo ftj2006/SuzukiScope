@@ -26,6 +26,19 @@ private val friendlyModuleNames = mapOf(
     "tpms" to "Tyre Pressure (TPMS)",
 )
 
+private val moduleIndicators = mapOf(
+    "4wd" to "4WD", "abs" to "ABS", "adm" to "ADM", "alc" to "ALC", "at" to "AT",
+    "bcm" to "BCM", "bmu" to "BMU", "csw" to "CSW", "dcbs" to "DCBS", "ecall" to "eCall",
+    "engine" to "Engine", "hvac" to "HVAC", "ipc" to "IPC", "isg" to "ISG", "mfl" to "MFL",
+    "motoengine" to "Moto", "powertrain" to "Powertrain", "ps" to "PS", "renaultdiesel" to "Diesel",
+    "tpms" to "TPMS",
+)
+
+fun fieldModuleIndicator(field: FieldDefinition): String {
+    val prefix = field.id.substringBefore('.')
+    return moduleIndicators[prefix] ?: prefix.uppercase()
+}
+
 /** A module selectable on the DTC screen \u2014 [isCan] picks CAN-UDS (0/0 byte framing) vs
  * KWP2000 K-Line (3/1 byte framing) when reading/clearing codes. */
 data class ModuleOption(
