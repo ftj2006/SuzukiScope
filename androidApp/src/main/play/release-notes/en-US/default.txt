@@ -1,2 +1,5 @@
-- Bank 1 and Bank 2 channel fields now include distinct channel letters and byte positions; fuel-trim roles remain unconfirmed
-- Configure fields shows a compact module badge on each field row
+- Power reduction gauges: live and long-term (constant derate), learned per car by VIN on this phone; export and reset in Diagnostics
+- Searchable unconfirmed fields (fuel status, intake cam, clutch, cruise, wheel speeds)
+- Disconnects after 5 min without ECU data; Exit closes the app
+- Recording notification when minimised; Bluetooth icon in Android Auto
+- Fewer debug files: one connection log per session, AA crash files only for real crashes

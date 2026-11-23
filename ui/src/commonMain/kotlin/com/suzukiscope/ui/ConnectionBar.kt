@@ -49,6 +49,7 @@ fun ConnectionBar(
     onSelectWifi: () -> Unit,
     onSelectBluetooth: () -> Unit,
     onUseSimulated: () -> Unit = {},
+    onExit: (() -> Unit)? = null,
     showTestData: Boolean = true,
     onOpenWifiSettings: (() -> Unit)? = null,
     onOpenBluetoothSettings: (() -> Unit)? = null,
@@ -102,6 +103,10 @@ fun ConnectionBar(
                 }
                 if (onOpenBluetoothSettings != null) {
                     DropdownMenuItem(text = { Text("Bluetooth settings") }, onClick = { menuOpen = false; onOpenBluetoothSettings() })
+                }
+                if (onExit != null) {
+                    HorizontalDivider()
+                    DropdownMenuItem(text = { Text("Exit") }, onClick = { menuOpen = false; onExit() })
                 }
             }
         }

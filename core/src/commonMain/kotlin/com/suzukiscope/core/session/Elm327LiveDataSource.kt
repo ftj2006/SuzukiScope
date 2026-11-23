@@ -112,7 +112,22 @@ class Elm327LiveDataSource(
         // No ATAT1: on Suzuki CAN adaptive timing cuts off the tail of slow multi-frame replies.
         if (protocol == Elm327Protocol.CAN_11BIT_500K) {
             querySupportedPids()
+            vin = readVin()
         }
+    }
+
+    /** Engine ECU VIN read at connect (KWP2000 1A 90); null if the ECU didn't answer. */
+    var vin: String? = null
+        private set
+
+    private suspend fun readVin(): String? {
+        val vin = runCatching {
+            ensureCanHeader(ENGINE_ECU)
+            val reply = client.requestHex(byteArrayOf(0x1A, 0x90.toByte()), 1500, checkReply = true)
+            reply.drop(2).filter { it in 0x30..0x5A }.map { it.toInt().toChar() }.joinToString("")
+        }.getOrNull()?.takeIf { it.length == 17 }
+        ioLog.append(IoDirection.RECEIVED, if (vin != null) "VIN read: ${vin.take(11)}******" else "VIN not available")
+        return vin
     }
 
     private suspend fun querySupportedPids() {

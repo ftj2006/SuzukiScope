@@ -70,7 +70,9 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     var settingsExpanded by remember { mutableStateOf(false) }
     var diagnosticsExpanded by remember { mutableStateOf(false) }
     val busFields = fields.filter { it.busProtocol == vehicleProtocol }
-    val filtered = (if (filter.isBlank()) busFields else busFields.filter { it.label.contains(filter, ignoreCase = true) })
+    val filtered = (if (filter.isBlank()) busFields else busFields.filter {
+        it.label.contains(filter, ignoreCase = true) || it.searchTerms.any { term -> term.contains(filter, ignoreCase = true) }
+    })
         // Selected fields always stay listed, even if a field test once marked them "no data".
         .filter { it.enabled || showNoDataFields || !it.verifiedNoData }
     val visible = filtered.sortedByDescending { it.enabled }
@@ -78,6 +80,7 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
     val testDataEnabled by viewModel.testDataEnabled.collectAsState()
     val rawRepliesEnabled by viewModel.rawRepliesEnabled.collectAsState()
     val fieldProbeStatus by viewModel.fieldProbeStatus.collectAsState()
+    val powerReferenceStatus by viewModel.powerReferenceStatus.collectAsState()
     val noDataCount = busFields.count { it.verifiedNoData && !it.enabled }
 
     editingField?.let { field ->
@@ -146,6 +149,14 @@ fun ConfigScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, o
                 }
                 ActionRow("Log the size and time of tables 21 00\u201321 FF", "Probe tables") {
                     viewModel.launch { probeEcuTables() }
+                }
+                SubHeading("Power reference (learned per vehicle on this phone)")
+                Text(powerReferenceStatus, style = androidx.compose.material3.MaterialTheme.typography.labelSmall)
+                ActionRow("Share every vehicle's learned reference (VIN serials left out)", "Export") {
+                    viewModel.exportPowerReferences()
+                }
+                ActionRow("Relearn this car after a tune or hardware change", "Reset") {
+                    viewModel.resetPowerReference()
                 }
             }
             fieldProbeStatus?.let {

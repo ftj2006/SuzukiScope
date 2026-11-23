@@ -33,4 +33,14 @@ class FieldRegistryTest {
         assertEquals(listOf("engine.can.00.kept_p2", "engine.can.00.mine_p5"), registry.fields.map { it.id })
         assertEquals(3, registry.get("engine.can.00.kept_p2")?.decode?.bit)
     }
+
+    @Test
+    fun mergeCatalogRefreshesSearchAliasesWithoutChangingSelection() {
+        val id = "engine.can.00.test_p17"
+        val registry = FieldRegistry(listOf(field(id, 19, enabled = true).copy(searchTerms = listOf("old alias"))))
+        registry.mergeCatalog(listOf(field(id, 19).copy(searchTerms = listOf("new alias"))))
+
+        assertEquals(listOf("new alias"), registry.get(id)?.searchTerms)
+        assertEquals(true, registry.get(id)?.enabled)
+    }
 }

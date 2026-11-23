@@ -71,6 +71,37 @@ object ExportStore {
 
     private const val RECORDINGS_CHANNEL = "recordings"
 
+    fun showRecordingInProgress(context: Context, visible: Boolean) {
+        val manager = context.getSystemService(android.app.NotificationManager::class.java) ?: return
+        if (!visible) {
+            manager.cancel(RECORDING_NOTIFICATION_ID)
+            return
+        }
+        val permitted = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
+            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!permitted) return
+        manager.createNotificationChannel(
+            android.app.NotificationChannel(ACTIVE_RECORDING_CHANNEL, "Active recording", android.app.NotificationManager.IMPORTANCE_LOW),
+        )
+        val openApp = android.app.PendingIntent.getActivity(
+            context, 0, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = androidx.core.app.NotificationCompat.Builder(context, ACTIVE_RECORDING_CHANNEL)
+            .setSmallIcon(R.drawable.ic_recording)
+            .setContentTitle("SuzukiScope recording")
+            .setContentText("Recording vehicle data")
+            .setContentIntent(openApp)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .build()
+        manager.notify(RECORDING_NOTIFICATION_ID, notification)
+    }
+
+    private const val ACTIVE_RECORDING_CHANNEL = "active_recording"
+    private const val RECORDING_NOTIFICATION_ID = 0x535A
+
     fun saveDebugEntry(context: Context, entry: String) {
         save(context, listOf(com.suzukiscope.ui.DashboardViewModel.ExportFile(
             "android-auto-crash-${System.currentTimeMillis()}.log",

@@ -51,6 +51,16 @@ private const val CRITICAL_FLASH_MS = 2500L
  */
 class MainActivity : ComponentActivity() {
 
+    override fun onStart() {
+        super.onStart()
+        AppState.setPhoneVisible(true)
+    }
+
+    override fun onStop() {
+        AppState.setPhoneVisible(false)
+        super.onStop()
+    }
+
     private val requestBluetoothPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -128,6 +138,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onSelectBluetooth = { connectToBluetooth() },
                                 onUseSimulated = { AppState.useSimulated() },
+                                onExit = { lifecycleScope.launch { AppState.disconnectAndStop(); finishAndRemoveTask() } },
                                 showTestData = testDataEnabled,
                                 onOpenWifiSettings = { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) },
                                 onOpenBluetoothSettings = { startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },

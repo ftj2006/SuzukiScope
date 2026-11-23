@@ -114,11 +114,15 @@ class DashboardViewModel(
     )
     private var currentIoLog = (source as? Elm327LiveDataSource)?.ioLog
     private var currentIoLogId: String? = null
+    private var currentConnectionEstablished = false
+    private val failedConnectionLogs = mutableListOf<ConnectionLog>()
 
     // Warning-alert edge detection (fire once on entering warning state, not every poll) and a
     // simple "is the hardware connection still alive" watchdog used by AppState's auto-reconnect.
     private val fieldsInCritical = HashSet<String>()
     private var lastReadingAtMs = currentTimeMillis()
+    @Volatile private var lastHardwareReadingAtMs = 0L
+    @Volatile private var diagnosticsInProgress = false
 
     /** Short-term peaks and recent limit hits, drawn the same on the phone and in Android Auto. */
     val markers = GaugeMarkers()
@@ -150,28 +154,128 @@ class DashboardViewModel(
         pollJob = scope.launch {
             launch { trackStaleFields() }
             session.readings().collect { reading ->
-                lastReadingAtMs = currentTimeMillis()
-                fieldReadingAtMs[reading.fieldId] = lastReadingAtMs
-                _values.value = _values.value + (reading.fieldId to reading.value)
-                _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
-                // Only real vehicle data teaches the scale; test data would teach a fake range.
-                if (isUsingHardwareSource()) {
-                    learnRange(reading.fieldId, reading.value)
-                    clearNoDataMark(reading.fieldId)
-                }
-                checkCritical(reading.fieldId, reading.value)
-                registry.get(reading.fieldId)?.let { field ->
-                    markers.record(field.id, reading.value, field.gaugeMax - field.gaugeMin, field.warningThreshold, field.criticalThreshold)
-                }
-                // Peak = highest value since connecting (or since recording started), shown on every gauge.
-                val peak = _peaks.value[reading.fieldId]
-                if (peak == null || reading.value > peak) {
-                    _peaks.value = _peaks.value + (reading.fieldId to reading.value)
-                }
-                if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
-                    recorder.record(reading)
-                }
+                // Derived fields only share the engine request; their values come from processEngineReply.
+                if (registry.get(reading.fieldId)?.derivedMetric == null) handleReading(reading)
             }
+        }
+    }
+
+    private fun handleReading(reading: Reading) {
+        lastReadingAtMs = currentTimeMillis()
+        fieldReadingAtMs[reading.fieldId] = lastReadingAtMs
+        _values.value = _values.value + (reading.fieldId to reading.value)
+        _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
+        // Only real vehicle data teaches the scale; test data would teach a fake range.
+        if (isUsingHardwareSource()) {
+            lastHardwareReadingAtMs = lastReadingAtMs
+            learnRange(reading.fieldId, reading.value)
+            clearNoDataMark(reading.fieldId)
+        }
+        checkCritical(reading.fieldId, reading.value)
+        registry.get(reading.fieldId)?.let { field ->
+            markers.record(field.id, reading.value, field.gaugeMax - field.gaugeMin, field.warningThreshold, field.criticalThreshold)
+        }
+        // Peak = highest value since connecting (or since recording started), shown on every gauge.
+        val peak = _peaks.value[reading.fieldId]
+        if (peak == null || reading.value > peak) {
+            _peaks.value = _peaks.value + (reading.fieldId to reading.value)
+        }
+        if (_isLogging.value && registry.get(reading.fieldId)?.recordEnabled == true) {
+            recorder.record(reading)
+        }
+    }
+
+    /** Each vehicle's learned power reference, kept on this phone and keyed by VIN. */
+    val powerReferences = com.suzukiscope.core.session.PowerReferenceStore()
+    var powerReferenceSink: ((String) -> Unit)? = null
+    private val _powerReferenceStatus = MutableStateFlow("Power reference: not connected")
+    val powerReferenceStatus: StateFlow<String> = _powerReferenceStatus.asStateFlow()
+    @Volatile private var currentVin: String? = null
+    // Without a VIN nothing is learned or compared, so another car's reference is never applied.
+    private val unidentifiedDetector = com.suzukiscope.core.session.PowerLimitDetector()
+    private var powerPersistJob: Job? = null
+
+    fun loadPowerReferences(text: String) {
+        runCatching { powerReferences.loadJson(text) }
+        updatePowerReferenceStatus()
+    }
+
+    /** Clears the connected vehicle's reference, e.g. after a tune or hardware change. */
+    fun resetPowerReference() {
+        val vin = currentVin ?: run { _fieldProbeStatus.value = "Connect to the car first: its VIN selects the reference"; return }
+        powerReferences.reset(vin)
+        powerReferenceSink?.invoke(powerReferences.toJson())
+        updatePowerReferenceStatus()
+        _fieldProbeStatus.value = "Power reference cleared for ${vin.take(11)}…; relearning from the next full-pedal pulls"
+    }
+
+    fun exportPowerReferences() {
+        if (powerReferences.vehicleCount() == 0) {
+            _fieldProbeStatus.value = "No power reference learned yet"
+            return
+        }
+        val name = "pj-suzukiscope-power-reference-${newSessionId()}.json"
+        exportSink(listOf(ExportFile(name, powerReferences.exportJson(currentTimeMillis()))))
+        _fieldProbeStatus.value = "Saved $name in Documents/SuzukiScope (VIN serials left out)"
+    }
+
+    private fun updatePowerReferenceStatus() {
+        val vin = currentVin
+        _powerReferenceStatus.value = when {
+            !isUsingHardwareSource() -> "Power reference: not connected (${powerReferences.vehicleCount()} vehicle(s) stored)"
+            vin == null -> "Power reference: VIN not read, so nothing is learned or compared"
+            else -> powerReferences.detectorFor(vin).coverage().let {
+                "Power reference ${vin.take(11)}…: ${it.airflowCells} airflow and ${it.timingCells} timing cells ready; learning"
+            }
+        }
+    }
+
+    private fun processEngineReply(timeMs: Long, reply: ByteArray) {
+        if (reply.size < 152 || reply[0] != 0x61.toByte() || reply[1] != 0.toByte()) return
+        val derived = fields.value.filter { it.derivedMetric != null && (it.enabled || (_isLogging.value && it.recordEnabled)) }
+        if (derived.isEmpty()) return
+        fun u(at: Int) = reply[at].toInt() and 0xFF
+        val rpm = ((u(37) shl 8) or u(38)) * 0.25
+        val kmh = u(42).toDouble()
+        val ratios = registry.get("engine.gear")?.decode?.gearRatios.orEmpty()
+        val sample = com.suzukiscope.core.session.PowerLimitSample(
+            timestampMs = timeMs,
+            rpm = rpm,
+            speedKmh = kmh,
+            gear = com.suzukiscope.core.field.FieldCodec.gear(rpm, kmh, ratios),
+            pedalPercent = u(65) / 2.55,
+            targetThrottlePercent = u(67) / 2.55,
+            manifoldKpa = u(43).toDouble(),
+            airflowGps = ((u(40) shl 8) or u(41)) * 0.01,
+            advanceDegrees = u(29) * 0.5 - 64,
+            fuelCut = u(138) and 1 == 1,
+            chargeAirTempC = u(147) - 40.0,
+            baroKpa = u(46).toDouble(),
+        )
+        val vin = currentVin
+        val detector = vin?.let { powerReferences.detectorFor(it) } ?: unidentifiedDetector
+        val result = detector.observe(sample, learn = vin != null)
+        if (result?.referenceChanged == true) schedulePowerPersist()
+        for (field in derived) {
+            val value = when (field.derivedMetric) {
+                com.suzukiscope.core.field.DerivedMetric.POWER_REDUCTION -> result?.reductionPercent
+                com.suzukiscope.core.field.DerivedMetric.POWER_REDUCTION_LONG -> result?.longTermReductionPercent
+                com.suzukiscope.core.field.DerivedMetric.AIRFLOW_AVAILABLE -> result?.airflowAvailablePercent
+                com.suzukiscope.core.field.DerivedMetric.THROTTLE_REDUCTION -> result?.throttleReductionPercent
+                com.suzukiscope.core.field.DerivedMetric.TIMING_DEFICIT_SHORT -> result?.timingDeficitDegrees
+                com.suzukiscope.core.field.DerivedMetric.TIMING_DEFICIT_LONG -> result?.longTermTimingDeficitDegrees
+                null -> null
+            } ?: continue
+            handleReading(Reading(field.id, timeMs, value))
+        }
+    }
+
+    private fun schedulePowerPersist() {
+        if (powerPersistJob?.isActive == true) return
+        powerPersistJob = scope.launch {
+            kotlinx.coroutines.delay(10_000)
+            powerReferenceSink?.invoke(powerReferences.toJson())
+            updatePowerReferenceStatus()
         }
     }
 
@@ -196,6 +300,12 @@ class DashboardViewModel(
     /** Milliseconds since the last successful reading — a long gap while on hardware means the
      * connection has likely dropped even though no exception ever reached this layer. */
     fun millisSinceLastReading(): Long = currentTimeMillis() - lastReadingAtMs
+
+    fun lastHardwareReadingTimeMs(): Long = lastHardwareReadingAtMs
+    fun isDiagnosticsInProgress(): Boolean = diagnosticsInProgress
+    fun hasPollableFields(): Boolean = fields.value.any {
+        (it.enabled || (_isLogging.value && it.recordEnabled)) && source.canPoll(it)
+    }
 
     /** True once the adapter link itself has failed, so reconnecting needn't wait for the stall timeout. */
     fun isTransportBroken(): Boolean = (source as? Elm327LiveDataSource)?.transportBroken == true
@@ -325,7 +435,9 @@ class DashboardViewModel(
     }
 
     suspend fun disconnectHardware() {
+        if (_isLogging.value) stopLogging()
         persistCurrentConnectionLog()
+        powerReferenceSink?.invoke(powerReferences.toJson())
         (source as? Elm327LiveDataSource)?.disconnect()
         // Idle until the user connects again or picks Test Data; test data never starts by itself.
         useSource(SimulatedLiveDataSource(), startPolling = false)
@@ -362,6 +474,8 @@ class DashboardViewModel(
         (newSource as? Elm327LiveDataSource)?.onRawReply = ::recordRawReply
         session = newSession()
         (newSource as? Elm327LiveDataSource)?.ioLog?.let { currentIoLog = it }
+        currentVin = (newSource as? Elm327LiveDataSource)?.vin
+        updatePowerReferenceStatus()
         _values.value = emptyMap()
         _peaks.value = emptyMap()
         markers.clear()
@@ -371,33 +485,66 @@ class DashboardViewModel(
         if (startPolling ?: (wasRunning || newSource is Elm327LiveDataSource)) start()
     }
 
-    /** Makes a connection attempt's log exportable even if it never becomes the active source
-     * (e.g. it failed to connect) — otherwise there'd be nothing to inspect via "Export log". */
+    /** Buffers failed attempts for the next combined connection-log export. */
     fun attachIoLog(ioLog: com.suzukiscope.core.log.Elm327IoLog?) {
-        persistCurrentConnectionLog()
         currentIoLog?.let { log ->
             val contents = log.toText()
             if (contents != "No adapter traffic logged yet.") {
-                connectionLogs += ConnectionLog(newSessionId(), contents)
+                if (currentConnectionEstablished) {
+                    persistCurrentConnectionLog()
+                } else {
+                    failedConnectionLogs += ConnectionLog(currentIoLogId ?: newSessionId(), contents)
+                    currentIoLog = null
+                    currentIoLogId = null
+                }
             }
         }
         currentIoLog = ioLog
         currentIoLogId = if (ioLog != null) newSessionId() else null
+        currentConnectionEstablished = false
     }
+
+    fun markConnectionEstablished() { currentConnectionEstablished = true }
 
     fun setExportSink(sink: (List<ExportFile>) -> Unit) { exportSink = sink }
 
     fun persistCurrentConnectionLog() {
         if (!_debugLogsEnabled.value) return
-        val log = currentIoLog ?: return
-        val contents = log.toText()
-        if (contents != "No adapter traffic logged yet.") {
-            val id = currentIoLogId ?: newSessionId()
-            connectionLogs += ConnectionLog(id, contents)
-            exportSink(listOf(ExportFile("pj-suzukiscope-connection-log-$id.txt", contents)))
-            currentIoLog = null
-            currentIoLogId = null
+        val combined = combinedCurrentConnectionLog() ?: return
+        connectionLogs += combined
+        exportSink(listOf(ExportFile("pj-suzukiscope-connection-log-${combined.id}.txt", combined.contents)))
+        failedConnectionLogs.clear()
+        currentIoLog = null
+        currentIoLogId = null
+        currentConnectionEstablished = false
+    }
+
+    private fun combinedCurrentConnectionLog(): ConnectionLog? {
+        val current = currentIoLog?.toText()?.takeUnless { it == "No adapter traffic logged yet." }
+        if (failedConnectionLogs.isEmpty()) return current?.let { ConnectionLog(currentIoLogId ?: newSessionId(), it) }
+        val output = StringBuilder()
+        val repeatedErrors = LinkedHashMap<String, Pair<String, Int>>()
+        failedConnectionLogs.forEachIndexed { index, failed ->
+            output.append("--- failed connection attempt ${index + 1} ---\n")
+            failed.contents.lineSequence().forEach { line ->
+                if ("[ERR]" in line) {
+                    val key = line.substringAfter(' ').trim()
+                    val prior = repeatedErrors[key]
+                    repeatedErrors[key] = (prior?.first ?: line) to ((prior?.second ?: 0) + 1)
+                    if (prior == null) output.appendLine(line)
+                } else if (line.isNotEmpty()) {
+                    output.appendLine(line)
+                }
+            }
         }
+        if (current != null) output.append("--- active connection ---\n").appendLine(current)
+        val repeats = repeatedErrors.values.filter { it.second > 1 }
+        if (repeats.isNotEmpty()) {
+            output.appendLine("--- repeated errors across failed attempts ---")
+            repeats.forEach { (line, count) -> output.appendLine("${count}x ${line.substringAfter(' ').trim()}") }
+        }
+        val id = failedConnectionLogs.firstOrNull()?.id ?: currentIoLogId ?: newSessionId()
+        return ConnectionLog(id, output.toString())
     }
 
     fun setFieldEnabled(id: String, enabled: Boolean) {
@@ -430,6 +577,9 @@ class DashboardViewModel(
         if (!enabled) {
             persistCurrentConnectionLog()
             currentIoLog = null
+            currentIoLogId = null
+            currentConnectionEstablished = false
+            failedConnectionLogs.clear()
             connectionLogs.clear()
         }
     }
@@ -445,6 +595,7 @@ class DashboardViewModel(
 
     @kotlin.jvm.Synchronized
     private fun recordRawReply(timeMs: Long, module: String, request: String, reply: ByteArray) {
+        if (module == "7E0" && request == "2100") processEngineReply(timeMs, reply)
         if (!_isLogging.value || !_rawRepliesEnabled.value) return
         rawReplies += "$timeMs $module $request " + reply.joinToString("") { "%02X".format(it) }
     }
@@ -604,10 +755,12 @@ class DashboardViewModel(
     suspend fun withBusPaused(block: suspend (heartbeat: () -> Unit) -> Unit) {
         val wasRunning = pollJob != null
         val current = source
+        diagnosticsInProgress = true
         stop()
         try {
             block { lastReadingAtMs = currentTimeMillis() }
         } finally {
+            diagnosticsInProgress = false
             (current as? Elm327LiveDataSource)?.resetBusState()
             lastReadingAtMs = currentTimeMillis()
             if (wasRunning && source === current) start()
@@ -625,6 +778,7 @@ class DashboardViewModel(
             return
         }
         val wasRunning = pollJob != null
+        diagnosticsInProgress = true
         stop()
         try {
             _fieldProbeStatus.value = block(liveSource) { message ->
@@ -637,6 +791,7 @@ class DashboardViewModel(
         } catch (e: Exception) {
             _fieldProbeStatus.value = "$task failed: ${e.message}"
         } finally {
+            diagnosticsInProgress = false
             lastReadingAtMs = currentTimeMillis()
             if (wasRunning && source === liveSource) start()
         }
@@ -713,14 +868,7 @@ class DashboardViewModel(
         }
 
     fun connectionLogsForExport(): List<ConnectionLog> {
-        val current = currentIoLog
-        if (current != null) {
-            val contents = current.toText()
-            if (contents != "No adapter traffic logged yet.") {
-                return connectionLogs + ConnectionLog(_sessionId.value ?: newSessionId(), contents)
-            }
-        }
-        return connectionLogs.toList()
+        return connectionLogs + listOfNotNull(combinedCurrentConnectionLog())
     }
 
     /** Unique per-session file name so exporting multiple sessions doesn't overwrite each other. */
@@ -729,5 +877,5 @@ class DashboardViewModel(
 
     /** Raw ELM327 AT-command/response trace for the active hardware connection (if any) —
      * useful for diagnosing the first few real vehicle connections, safe to ignore otherwise. */
-    fun exportIoLog(): String = currentIoLog?.toText() ?: "No hardware connection active — nothing logged yet."
+    fun exportIoLog(): String = combinedCurrentConnectionLog()?.contents ?: "No hardware connection active — nothing logged yet."
 }

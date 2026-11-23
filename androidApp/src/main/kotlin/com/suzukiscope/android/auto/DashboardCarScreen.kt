@@ -7,6 +7,7 @@ import androidx.car.app.Screen
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
+import androidx.car.app.model.CarIcon
 import androidx.car.app.model.OnClickListener
 import androidx.car.app.model.GridItem
 import androidx.car.app.model.GridSection
@@ -14,6 +15,7 @@ import androidx.car.app.model.SectionedItemTemplate
 import androidx.car.app.model.GridTemplate
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.Template
+import androidx.core.graphics.drawable.IconCompat
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -229,7 +231,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                 .setOnClickListener(onRecord)
                 .build()
             val connectFab = Action.Builder()
-                .setIcon(GaugeIcon.connectionStatusIcon(isConnected))
+                .setIcon(if (AppState.usesBluetooth()) CarIcon.Builder(IconCompat.createWithResource(carContext, com.suzukiscope.android.R.drawable.ic_bluetooth)).build() else GaugeIcon.connectionStatusIcon(isConnected))
                 .setBackgroundColor(connectionColor(status, isConnected))
                 .setOnClickListener(onConnect)
                 .build()
@@ -268,7 +270,7 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
 
         val actionStrip = ActionStrip.Builder()
             .addAction(Action.Builder().setIcon(recordIcon).setOnClickListener(onRecord).build())
-            .addAction(Action.Builder().setIcon(GaugeIcon.connectionStatusIcon(isConnected)).setOnClickListener(onConnect).build())
+            .addAction(Action.Builder().setIcon(if (AppState.usesBluetooth()) CarIcon.Builder(IconCompat.createWithResource(carContext, com.suzukiscope.android.R.drawable.ic_bluetooth)).build() else GaugeIcon.connectionStatusIcon(isConnected)).setOnClickListener(onConnect).build())
             .build()
 
         return GridTemplate.Builder()

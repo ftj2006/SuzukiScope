@@ -15,6 +15,7 @@ class SuzukiScopeApplication : Application() {
         AppState.initPersistence(File(filesDir, "field-config.json"))
         AppState.initVehicleProtocol()
         AppState.initEcuTables(File(filesDir, "last-ecu-tables.txt"))
+        AppState.initPowerReferences(File(filesDir, "power-references.json"))
         AppState.initAutoLayout(File(filesDir, "auto-layout.json"))
         AppState.initWifiConfig(File(filesDir, "wifi-config.json"))
         AppState.initLastConnection(File(filesDir, "last-connection.txt"))

@@ -4,6 +4,7 @@ import com.suzukiscope.core.field.FieldRegistryStore
 import com.suzukiscope.core.elm327.Elm327Protocol
 import com.suzukiscope.core.log.describeError
 import com.suzukiscope.core.session.Elm327LiveDataSource
+import com.suzukiscope.core.session.NoReadingTimeout
 import com.suzukiscope.core.session.SimulatedLiveDataSource
 import com.suzukiscope.core.transport.Transport
 import com.suzukiscope.core.transport.WifiConfig
@@ -18,6 +19,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import java.io.File
@@ -39,6 +42,7 @@ object AppState {
     // K-Line fast init plus the first shared request can take several seconds; a shorter window
     // declared fresh connections dead before their first reading and looped reconnecting.
     private const val STALL_MS = 12_000L
+    private const val DISCONNECT_AFTER_NO_DATA_MS = 300_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var appContext: android.content.Context? = null
     private var lastWifiSsid: String? = null
@@ -66,6 +70,13 @@ object AppState {
     val recordingSaved: kotlinx.coroutines.flow.SharedFlow<String> = _recordingSaved
     private val _nearbySsids = MutableStateFlow<List<String>>(emptyList())
     val nearbySsids: StateFlow<List<String>> = _nearbySsids.asStateFlow()
+    private val phoneVisible = MutableStateFlow(false)
+    private val monitoringEnabled = MutableStateFlow(true)
+
+    fun setPhoneVisible(visible: Boolean) {
+        phoneVisible.value = visible
+        if (visible) monitoringEnabled.value = true
+    }
 
     // Kept up to date by [WifiCallback]; null when the phone isn't on any Wi-Fi network.
     @Volatile private var wifiNetwork: Network? = null
@@ -105,6 +116,10 @@ object AppState {
         dashboardViewModel.alertSink = AndroidCriticalAlertSink(context)
         AutoCrashLog.init(context)
         val appCtx = context.applicationContext
+        scope.launch {
+            combine(dashboardViewModel.isLogging, phoneVisible) { recording, visible -> recording && !visible }
+                .collect { ExportStore.showRecordingInProgress(appCtx, it) }
+        }
         // Set here rather than in MainActivity so recordings started from Android Auto are saved too.
         dashboardViewModel.setExportSink { files ->
             val saved = ExportStore.save(appCtx, files)
@@ -201,6 +216,14 @@ object AppState {
     fun initEcuTables(file: File) {
         runCatching { file.readText() }.getOrNull()?.let { dashboardViewModel.loadEcuTables(it) }
         dashboardViewModel.ecuTablesSink = { text ->
+            runCatching { file.parentFile?.mkdirs(); file.writeText(text) }
+        }
+    }
+
+    /** Restores each vehicle's learned power reference (app-private storage) and saves every update. */
+    fun initPowerReferences(file: File) {
+        runCatching { file.readText() }.getOrNull()?.let { dashboardViewModel.loadPowerReferences(it) }
+        dashboardViewModel.powerReferenceSink = { text ->
             runCatching { file.parentFile?.mkdirs(); file.writeText(text) }
         }
     }
@@ -386,6 +409,7 @@ object AppState {
     }
 
     suspend fun connectWifi(): Boolean {
+        monitoringEnabled.value = true
         val config = _wifiConfig.value
         lastWifiSsid = null
         reconnectFactory = ::newWifiTransport
@@ -394,6 +418,7 @@ object AppState {
     }
 
     suspend fun connectBluetooth(transport: Transport): Boolean {
+        monitoringEnabled.value = true
         dashboardViewModel.stopTestData()
         selectedTransport = transport
         lastWifiSsid = null
@@ -435,6 +460,7 @@ object AppState {
             source.connect()
             _connectionStatus.value = "ELM327 ready; starting live data..."
             dashboardViewModel.useSource(source)
+            dashboardViewModel.markConnectionEstablished()
             val ioLog = source.ioLog
             dtcViewModel.attachClient(source.client) { line -> ioLog.append(com.suzukiscope.core.log.IoDirection.RECEIVED, line) }
             _connectionStatus.value = connectionStatusFor(transport)
@@ -448,7 +474,6 @@ object AppState {
                 "Connection failed (${e::class.simpleName}): ${describeError(e)}",
             )
             _connectionStatus.value = "Connection failed (${e::class.simpleName}): ${describeError(e)}"
-            dashboardViewModel.persistCurrentConnectionLog()
             return false
         }
     }
@@ -474,11 +499,15 @@ object AppState {
     // Remembers how to re-open the last-used transport (Wi-Fi host/port, or the same Bluetooth
     // device/socket) so a dropped connection can be retried automatically instead of requiring
     // the driver to reach for the phone and tap Connect again mid-drive.
-    private var reconnectFactory: (() -> Transport)? = null
+    @Volatile private var reconnectFactory: (() -> Transport)? = null
     private var reconnecting = false
-    private var selectedTransport: Transport? = null
+    @Volatile private var selectedTransport: Transport? = null
+
+    fun usesBluetooth(): Boolean = selectedTransport is BluetoothSppTransport ||
+        dashboardViewModel.currentTransportName().startsWith("bt://")
 
     fun selectWifi() {
+        monitoringEnabled.value = true
         dashboardViewModel.stopTestData()
         lastWifiSsid = null
         selectedTransport = newWifiTransport()
@@ -489,15 +518,11 @@ object AppState {
 
     suspend fun toggleConnection() {
         if (waitingForSsid) {
-            waitingForSsid = false
-            reconnectFactory = null
-            _connectionStatus.value = "Disconnected"
+            disconnectAndStop()
             return
         }
         if (dashboardViewModel.isUsingHardwareSource()) {
-            reconnectFactory = null
-            dashboardViewModel.disconnectHardware()
-            _connectionStatus.value = "Disconnected"
+            disconnectAndStop()
             return
         }
         val transport = selectedTransport ?: run {
@@ -506,18 +531,57 @@ object AppState {
         }
         // Wi-Fi gets a fresh transport per attempt so it binds to whichever Wi-Fi network is current.
         val factory: () -> Transport = if (transport is WifiTransport) ::newWifiTransport else { { transport } }
+        monitoringEnabled.value = true
         reconnectFactory = factory
         _connectionStatus.value = "Connecting to ${transport.name}..."
         connect(factory())
     }
 
+    suspend fun disconnectAndStop() {
+        reconnectFactory = null
+        waitingForSsid = false
+        monitoringEnabled.value = false
+        connectMutex.withLock {
+            if (dashboardViewModel.isUsingHardwareSource()) {
+                dashboardViewModel.disconnectHardware()
+            } else {
+                if (dashboardViewModel.isLogging.value) dashboardViewModel.stopLogging()
+                dashboardViewModel.stop()
+                dashboardViewModel.persistCurrentConnectionLog()
+            }
+            _connectionStatus.value = "Disconnected"
+        }
+    }
+
     private fun startReconnectWatchdog() {
         scope.launch {
             var attempt = 0
+            val noReadingTimeout = NoReadingTimeout(DISCONNECT_AFTER_NO_DATA_MS)
             while (true) {
+                monitoringEnabled.first { it }
                 delay(2000)
+                if (!monitoringEnabled.value) continue
                 val factory = reconnectFactory
-                if (factory == null || reconnecting) continue
+                if (factory == null) {
+                    noReadingTimeout.reset()
+                    continue
+                }
+                if (reconnecting) continue
+                val diagnosticsInProgress = dashboardViewModel.isDiagnosticsInProgress()
+                val stalled = dashboardViewModel.isUsingHardwareSource() &&
+                    (dashboardViewModel.isTransportBroken() ||
+                        (dashboardViewModel.hasPollableFields() && dashboardViewModel.millisSinceLastReading() > STALL_MS))
+                if (noReadingTimeout.observe(
+                        System.currentTimeMillis(), dashboardViewModel.lastHardwareReadingTimeMs(),
+                        if (stalled) dashboardViewModel.millisSinceLastReading() else null, diagnosticsInProgress,
+                    )) {
+                    dashboardViewModel.logConnectionEvent("Disconnected after five minutes without ECU readings")
+                    disconnectAndStop()
+                    _connectionStatus.value = "Disconnected: no ECU readings for 5 minutes"
+                    noReadingTimeout.reset()
+                    continue
+                }
+                if (diagnosticsInProgress) continue
                 if (waitingForSsid) {
                     val reason = wifiBlockReason()
                     if (reason != null) {
@@ -527,12 +591,12 @@ object AppState {
                     reconnecting = true
                     attempt = 0
                     _connectionStatus.value = "Wi-Fi '${_wifiConfig.value.lockedSsid}' available \u2014 connecting..."
-                    connect(factory())
+                    connectMutex.withLock {
+                        if (reconnectFactory === factory) connectLocked(factory())
+                    }
                     reconnecting = false
                     continue
                 }
-                val stalled = dashboardViewModel.isUsingHardwareSource() &&
-                    (dashboardViewModel.isTransportBroken() || dashboardViewModel.millisSinceLastReading() > STALL_MS)
                 if (!stalled) continue
                 val onWifi = dashboardViewModel.currentTransportName().startsWith("wifi://")
                 val blocked = if (onWifi) wifiBlockReason() else null
@@ -550,7 +614,9 @@ object AppState {
                 _connectionStatus.value = "Connection lost \u2014 reconnecting (attempt $attempt)..."
                 val backoffMs = minOf(2000L * (1 shl (attempt - 1).coerceAtMost(4)), 30_000L)
                 delay(backoffMs)
-                val ok = connect(factory())
+                val ok = connectMutex.withLock {
+                    if (reconnectFactory === factory) connectLocked(factory()) else false
+                }
                 if (ok) attempt = 0
                 reconnecting = false
             }
@@ -561,7 +627,9 @@ object AppState {
         scope.launch {
             var tick = 0
             while (true) {
+                monitoringEnabled.first { it }
                 delay(2000)
+                if (!monitoringEnabled.value) continue
                 val ssid = currentSsid()
                 _currentSsid.value = ssid
                 if (tick++ % 5 == 0) refreshNearbySsids()

@@ -23,4 +23,17 @@ class FieldCatalogLoaderTest {
         // Example defaults are still enabled after merging in the (disabled) full catalog.
         assertTrue(registry.fields.filter { it.id.startsWith("engine.coolant_temp") }.all { it.enabled })
     }
+
+    @Test
+    fun unconfirmedCandidatesAreExplicitlyLabelledAndSearchable() {
+        val catalog = FieldCatalogLoader.loadFullCatalog().associateBy { it.id }
+        val fuelStatus = catalog.getValue("engine.can.00.inferred_fuel_status_p15")
+        val wheelSpeed = catalog.getValue("abs.can.261_56100_61mb_00.inferred_wheel_speed_a_p7")
+
+        assertTrue(fuelStatus.label.startsWith("Unconfirmed:"))
+        assertTrue("open loop" in fuelStatus.searchTerms)
+        assertTrue(wheelSpeed.label.startsWith("Unconfirmed:"))
+        assertTrue("wheel slip" in wheelSpeed.searchTerms)
+        assertTrue(!fuelStatus.enabled && !wheelSpeed.enabled)
+    }
 }

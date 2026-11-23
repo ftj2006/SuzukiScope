@@ -20,17 +20,17 @@ object AutoCrashLog {
         ).apply { parentFile?.mkdirs() }
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            append("Uncaught exception on ${thread.name}", throwable)
+            append("Uncaught exception on ${thread.name}", throwable, exportCrash = true)
             previousHandler?.uncaughtException(thread, throwable)
         }
     }
 
-    fun append(message: String, throwable: Throwable? = null) {
+    fun append(message: String, throwable: Throwable? = null, exportCrash: Boolean = false) {
         if (!enabled) return
         val details = throwable?.let { StringWriter().also { writer -> it.printStackTrace(PrintWriter(writer)) }.toString() }.orEmpty()
         val entry = "${Instant.now()} $message\n$details\n"
         file?.appendText(entry)
-        context?.let { ExportStore.saveDebugEntry(it, entry) }
+        if (exportCrash && throwable != null) context?.let { ExportStore.saveDebugEntry(it, entry) }
     }
 
     fun setEnabled(value: Boolean) { enabled = value }

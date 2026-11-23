@@ -4,6 +4,12 @@ Started 2026-11-17 from the 40-minute drive in `pj-suzukiscope-connection-log-20
 (8,755 engine `21 00` replies, about 5 per second). Tooling: `reference/analyse_knock_baseline.py`,
 baseline output: `reference/knock-baseline.json`.
 
+> **2026-11-23 update:** the weekend logs showed that the ECU also uses spark for normal torque control: at the same boost
+> and RPM, advance is about 6° lower at 75–88% pedal than at full pedal. Timing below the baseline only indicates knock
+> with the pedal held at ≥ 95%; `under_load()` (pedal ≥ 60%) is too loose. Power-limit analysis, ESP findings and the
+> newer detector: [POWER_LIMIT_ANALYSIS.md](POWER_LIMIT_ANALYSIS.md), `reference/analyse_power_limits.py`.
+> Field meanings: [ENGINE_2100_FIELD_FINDINGS.md](ENGINE_2100_FIELD_FINDINGS.md).
+
 ## Gears (RPM per km/h)
 
 | Gear | 1 | 2 | 3 | 4 | 5 | 6 |
@@ -45,7 +51,8 @@ A sample is in a gear when RPM ÷ km/h is within 6% of that gear, at 10 km/h or 
   advance −2.5 to −5.5° where the same cell reaches 3–5°. Intake air temperature (B) normal (32–33 °C).
 - Similar 6–8° drops at 1794924997337 (4th, 3,700 RPM) and 1794925604366 (5th, 3,590 RPM, adv −4.0 vs 5.0).
 - Throttle intervention at about 1794926772250 (16:36:55): 2nd, full pedal, target throttle 44% while boost (200 kPa)
-  overshot MAP (188 kPa): torque or overboost limiting.
+  overshot MAP (188 kPa): torque or overboost limiting. (2026-11-23: offset 147 is charge pressure before the throttle, so
+  this is the throttle removing torque; ESP is the likely cause, as on 21 Nov, but there is no ABS data for this drive.)
 - First comparison of the drive against its own baseline: long-term deficit +2.3° over 152 loaded samples;
   48 samples 3° or more below the best seen. A single drive is a weak baseline (232 loaded samples, many cells with only 3).
 

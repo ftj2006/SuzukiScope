@@ -62,5 +62,7 @@ Findings from testing SuzukiScope on a real car, adapters and an Android Auto he
 - Config → Settings → bug icon → **Share** sends a single text file containing:
   - app version, device, protocol and status;
   - all connection logs;
-  - the last 200 KB of the crash/Android Auto log (which records uncaught exceptions).
+  - the last 200 KB of the internal Android Auto lifecycle/exception log.
+- Android Auto lifecycle entries stay in the internal log; a standalone crash file is exported only for an uncaught
+  exception. Failed reconnect attempts are buffered into one connection log, with duplicate error lines counted once.
 - On phones without a document picker (e.g. Honor), opening the export folder used to crash. It now shows a hint instead.

@@ -6019,7 +6019,12 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "turbo wastegate",
+      "boost control",
+      "boost limiting"
+    ]
   },
   {
     "id": "engine.can.00.vvt_in_bank_1_diff_target_actual_p49",
@@ -6544,7 +6549,13 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "charge pressure",
+      "pre-throttle pressure",
+      "turbo boost",
+      "boost limiting"
+    ]
   },
   {
     "id": "engine.can.00.oil_temp_p8",
@@ -6573,7 +6584,7 @@
   },
   {
     "id": "engine.can.00.bank_1_p17",
-    "label": "Bank 1 channel A (byte 17)",
+    "label": "Unconfirmed: Bank 1 channel A, possible short-term trim (byte 17)",
     "unit": "percent",
     "request": {
       "targetAddress": 2016,
@@ -6594,11 +6605,18 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "STFT",
+      "short-term fuel trim",
+      "fuel correction",
+      "open loop",
+      "closed loop"
+    ]
   },
   {
     "id": "engine.can.00.bank_1_p18",
-    "label": "Bank 1 channel B (byte 18)",
+    "label": "Unconfirmed: Bank 1 channel B, possible long-term trim (byte 18)",
     "unit": "percent",
     "request": {
       "targetAddress": 2016,
@@ -6619,11 +6637,17 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "LTFT",
+      "long-term fuel trim",
+      "fuel correction",
+      "learned trim"
+    ]
   },
   {
     "id": "engine.can.00.bank_1_p21",
-    "label": "Bank 1 channel C (byte 21)",
+    "label": "Unconfirmed: Bank 1 channel C, possible long-term trim (byte 21)",
     "unit": "percent",
     "request": {
       "targetAddress": 2016,
@@ -6644,7 +6668,13 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "LTFT",
+      "long-term fuel trim",
+      "fuel correction",
+      "learned trim"
+    ]
   },
   {
     "id": "engine.can.00.bank_2_p19",
@@ -6819,7 +6849,13 @@
     },
     "enabled": false,
     "sourceClass": "com.malykh.szviewer.common.sdlmod.data.local.engine.Engine_CAN_00_Local$",
-    "verified": true
+    "verified": true,
+    "searchTerms": [
+      "airflow",
+      "MAF",
+      "mass air flow",
+      "power estimate"
+    ]
   },
   {
     "id": "engine.can.00.speed_p40",
@@ -14836,7 +14872,7 @@
   },
   {
     "id": "engine.can.00.a_c_fan_p124b1",
-    "label": "A/C fan",
+    "label": "Unconfirmed: Fan stage signal (catalogue calls this A/C fan, byte 124 bit 1)",
     "unit": "",
     "request": {
       "targetAddress": 2016,
@@ -14860,7 +14896,13 @@
     "gaugeMax": 1.0,
     "enabled": false,
     "sourceClass": "szviewer:uaz",
-    "verified": false
+    "verified": false,
+    "searchTerms": [
+      "radiator fan",
+      "cooling fan",
+      "fan stage",
+      "over-temperature"
+    ]
   },
   {
     "id": "engine.can.00.a_c_compressor_clutch_p124b4",
@@ -24437,7 +24479,12 @@
     "gaugeMax": 1.0,
     "enabled": false,
     "sourceClass": "szviewer:ngh",
-    "verified": false
+    "verified": false,
+    "searchTerms": [
+      "ESP active",
+      "stability control intervention",
+      "power reduction"
+    ]
   },
   {
     "id": "abs.can.261_56100_61mb_00.tcs_control_p41b2",
@@ -24465,7 +24512,12 @@
     "gaugeMax": 1.0,
     "enabled": false,
     "sourceClass": "szviewer:ngh",
-    "verified": false
+    "verified": false,
+    "searchTerms": [
+      "traction control",
+      "wheel slip",
+      "power reduction"
+    ]
   },
   {
     "id": "abs.can.261_56100_61mb_00.tcs_control_p41b3",
@@ -24493,7 +24545,12 @@
     "gaugeMax": 1.0,
     "enabled": false,
     "sourceClass": "szviewer:ngh",
-    "verified": false
+    "verified": false,
+    "searchTerms": [
+      "traction control",
+      "engine torque reduction",
+      "power reduction"
+    ]
   },
   {
     "id": "abs.can.261_56100_61mb_00.esp_off_switch_state_p42b3",
@@ -24521,7 +24578,12 @@
     "gaugeMax": 1.0,
     "enabled": false,
     "sourceClass": "szviewer:ngh",
-    "verified": false
+    "verified": false,
+    "searchTerms": [
+      "ESP off button",
+      "ESP disabled",
+      "stability control"
+    ]
   },
   {
     "id": "abs.can.261_56100_61mb_00.steering_angle_signal_p42b6",
@@ -25271,5 +25333,406 @@
     "enabled": false,
     "sourceClass": "szviewer:yfu",
     "verified": false
+  },
+  {
+    "id": "engine.can.00.inferred_fuel_status_p15",
+    "label": "Unconfirmed: Fuel system status (open/closed loop, byte 15)",
+    "unit": "code",
+    "searchTerms": [
+      "fuel mode",
+      "fuel status",
+      "open loop",
+      "closed loop",
+      "fuel system state"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 17,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0,
+    "gaugeMax": 4,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_intake_cam_p48",
+    "label": "Unconfirmed: Intake cam/VVT position (byte 48, raw)",
+    "unit": "raw",
+    "searchTerms": [
+      "intake cam",
+      "cam angle",
+      "VVT",
+      "variable valve timing"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 50,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0,
+    "gaugeMax": 255,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_fan_stage_p124b2",
+    "label": "Unconfirmed: Fan stage signal (byte 124 bit 2)",
+    "unit": "state",
+    "searchTerms": [
+      "radiator fan",
+      "cooling fan",
+      "fan stage",
+      "over-temperature"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 126,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 2
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 1,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_turbo_bypass_p126b2",
+    "label": "Unconfirmed: Turbo bypass/recirculation valve (byte 126 bit 2)",
+    "unit": "state",
+    "searchTerms": [
+      "turbo bypass",
+      "recirculation valve",
+      "diverter valve",
+      "boost lift-off"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 128,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 2
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 1,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_brake_switch_p133b4",
+    "label": "Unconfirmed: Second brake switch (byte 133 bit 4)",
+    "unit": "state",
+    "searchTerms": [
+      "brake pedal",
+      "stop lamp switch",
+      "brake switch"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 135,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 4
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 1,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_clutch_switch_p133b5",
+    "label": "Unconfirmed: Clutch switch A (byte 133 bit 5)",
+    "unit": "state",
+    "searchTerms": [
+      "clutch pedal",
+      "clutch switch",
+      "gear change"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 135,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 5
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 1,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_clutch_switch_p133b7",
+    "label": "Unconfirmed: Clutch switch B (byte 133 bit 7)",
+    "unit": "state",
+    "searchTerms": [
+      "clutch pedal",
+      "clutch switch",
+      "gear change"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 135,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 7
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 1,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "engine.can.00.inferred_cruise_state_p134b0",
+    "label": "Unconfirmed: Cruise control state (byte 134 bits 0-1)",
+    "unit": "code",
+    "searchTerms": [
+      "cruise control",
+      "cruise engaged",
+      "adaptive cruise",
+      "speed control"
+    ],
+    "request": {
+      "targetAddress": 2016,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 136,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0,
+      "bit": 0,
+      "bitCount": 2
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 3,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "abs.can.261_56100_61mb_00.inferred_wheel_speed_a_p7",
+    "label": "Unconfirmed: ABS wheel speed A (byte 7)",
+    "unit": "km/h",
+    "searchTerms": [
+      "wheel speed",
+      "ABS speed",
+      "wheel slip",
+      "traction control"
+    ],
+    "request": {
+      "targetAddress": 609,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 9,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 255,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "abs.can.261_56100_61mb_00.inferred_wheel_speed_b_p8",
+    "label": "Unconfirmed: ABS wheel speed B (byte 8)",
+    "unit": "km/h",
+    "searchTerms": [
+      "wheel speed",
+      "ABS speed",
+      "wheel slip",
+      "traction control"
+    ],
+    "request": {
+      "targetAddress": 609,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 10,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 255,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "abs.can.261_56100_61mb_00.inferred_wheel_speed_c_p9",
+    "label": "Unconfirmed: ABS wheel speed C (byte 9)",
+    "unit": "km/h",
+    "searchTerms": [
+      "wheel speed",
+      "ABS speed",
+      "wheel slip",
+      "traction control"
+    ],
+    "request": {
+      "targetAddress": 609,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 11,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 255,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
+  },
+  {
+    "id": "abs.can.261_56100_61mb_00.inferred_wheel_speed_d_p10",
+    "label": "Unconfirmed: ABS wheel speed D (byte 10)",
+    "unit": "km/h",
+    "searchTerms": [
+      "wheel speed",
+      "ABS speed",
+      "wheel slip",
+      "traction control"
+    ],
+    "request": {
+      "targetAddress": 609,
+      "isFunctionalAddress": false,
+      "mode": 33,
+      "params": [
+        0
+      ],
+      "responsePrefixBytes": 0,
+      "responseSuffixBytes": 0
+    },
+    "decode": {
+      "skipBytes": 12,
+      "byteLength": 1,
+      "signed": false,
+      "scale": 1.0,
+      "offset": 0.0
+    },
+    "gaugeMin": 0.0,
+    "gaugeMax": 255,
+    "enabled": false,
+    "verified": false,
+    "sourceClass": "derived: weekend log analysis; meaning unconfirmed"
   }
 ]

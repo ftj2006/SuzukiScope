@@ -46,7 +46,21 @@ data class FieldDefinition(
     val autoSlot: Int? = null,
     /** Used instead of [request]/[decode] when the vehicle doesn't support this field's standard OBD-II PIDs. */
     val fallback: FieldFallback? = null,
+    /** Extra searchable aliases; kept out of the gauge label. */
+    val searchTerms: List<String> = emptyList(),
+    /** Derived from the shared engine table by the dashboard instead of decoded as a sensor value. */
+    val derivedMetric: DerivedMetric? = null,
 )
+
+@Serializable
+enum class DerivedMetric {
+    POWER_REDUCTION,
+    POWER_REDUCTION_LONG,
+    AIRFLOW_AVAILABLE,
+    THROTTLE_REDUCTION,
+    TIMING_DEFICIT_SHORT,
+    TIMING_DEFICIT_LONG,
+}
 
 @Serializable
 data class FieldFallback(val request: RequestSpec, val decode: DecodeSpec)

@@ -73,7 +73,10 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
         _fields.values.removeAll { isCatalogId(it.id) && it.id !in catalogIds && !it.enabled }
         for (field in catalog) {
             val existing = _fields[field.id]
-            _fields[field.id] = existing?.copy(label = field.label, unit = field.unit, request = field.request, decode = field.decode)
+            _fields[field.id] = existing?.copy(
+                label = field.label, unit = field.unit, searchTerms = field.searchTerms,
+                request = field.request, decode = field.decode, derivedMetric = field.derivedMetric,
+            )
                 ?: field
             if (field.id !in defaultRanges) defaultRanges[field.id] = field.gaugeMin to field.gaugeMax
         }
@@ -92,7 +95,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
     private fun isCatalogId(id: String) = id.count { it == '.' } >= 3
 
     private fun dataKeys(field: FieldDefinition): List<Any> =
-        listOfNotNull(field.request to field.decode, field.fallback?.let { it.request to it.decode })
+        if (field.derivedMetric != null) emptyList() else listOfNotNull(field.request to field.decode, field.fallback?.let { it.request to it.decode })
             .map { (request, decode) ->
                 listOf(
                     request.targetAddress, request.isFunctionalAddress, request.mode, request.params,
@@ -288,6 +291,89 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
                     gaugeMin = 9.0,
                     gaugeMax = 16.0,
                     enabled = false,
+                ),
+                FieldDefinition(
+                    id = "engine.power_reduction",
+                    label = "Power reduction",
+                    unit = "%",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 60.0,
+                    warningThreshold = 10.0,
+                    criticalThreshold = 25.0,
+                    decimals = 0,
+                    enabled = false,
+                    searchTerms = listOf("power limit", "torque limit", "power cut", "knock", "timing retard", "limited power"),
+                    derivedMetric = DerivedMetric.POWER_REDUCTION,
+                ),
+                FieldDefinition(
+                    id = "engine.power_reduction_long",
+                    label = "Power reduction (long-term)",
+                    unit = "%",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 30.0,
+                    // Healthy weekend driving settled at 2-5% (normal spread below the learned best).
+                    warningThreshold = 8.0,
+                    criticalThreshold = 15.0,
+                    decimals = 1,
+                    enabled = false,
+                    searchTerms = listOf("long-term power loss", "limp mode", "derate", "safety trend", "octane", "learned retard"),
+                    derivedMetric = DerivedMetric.POWER_REDUCTION_LONG,
+                ),
+                FieldDefinition(
+                    id = "engine.power_detail_airflow",
+                    label = "Power detail: airflow vs best",
+                    unit = "%",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 100.0,
+                    decimals = 0,
+                    enabled = false,
+                    searchTerms = listOf("power reduction", "airflow estimate", "boost withheld", "limp mode"),
+                    derivedMetric = DerivedMetric.AIRFLOW_AVAILABLE,
+                ),
+                FieldDefinition(
+                    id = "engine.power_detail_throttle",
+                    label = "Power detail: throttle cut vs pedal",
+                    unit = "%",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 100.0,
+                    decimals = 0,
+                    enabled = false,
+                    searchTerms = listOf("power reduction", "torque intervention", "throttle cut", "pedal vs target"),
+                    derivedMetric = DerivedMetric.THROTTLE_REDUCTION,
+                ),
+                FieldDefinition(
+                    id = "engine.power_detail_timing",
+                    label = "Power detail: timing below best",
+                    unit = "deg",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 15.0,
+                    decimals = 1,
+                    enabled = false,
+                    searchTerms = listOf("power reduction", "ignition retard", "knock", "timing loss"),
+                    derivedMetric = DerivedMetric.TIMING_DEFICIT_SHORT,
+                ),
+                FieldDefinition(
+                    id = "engine.power_detail_timing_long",
+                    label = "Power detail: timing below best (long-term)",
+                    unit = "deg",
+                    request = SUZUKI_ENGINE_00,
+                    decode = DecodeSpec(skipBytes = 40, byteLength = 2),
+                    gaugeMin = 0.0,
+                    gaugeMax = 10.0,
+                    decimals = 1,
+                    enabled = false,
+                    searchTerms = listOf("power reduction", "limp mode", "learned retard", "octane", "knock adaptation"),
+                    derivedMetric = DerivedMetric.TIMING_DEFICIT_LONG,
                 ),
             ),
         )

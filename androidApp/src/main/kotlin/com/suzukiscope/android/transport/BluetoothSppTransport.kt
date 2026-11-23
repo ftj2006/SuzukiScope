@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothSocket
 import com.suzukiscope.core.transport.Transport
 import java.io.IOException
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 /**
  * Classic Bluetooth RFCOMM (SPP) transport, ported from the Android APK's
@@ -51,6 +52,8 @@ class BluetoothSppTransport(
                 if (b == -1) break
                 buffer.add(b.toByte())
                 if (b.toByte() == terminator) break
+            } else {
+                delay(5)
             }
         }
         return buffer.toByteArray()
