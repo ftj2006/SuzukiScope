@@ -7011,6 +7011,7 @@
     "id": "engine.can.00.o2_sensor_bank_1_sensor_1_p74",
     "label": "O2 Sensor (Bank 1, Sensor 1)",
     "unit": "volt",
+    "decimals": 2,
     "request": {
       "targetAddress": 2016,
       "isFunctionalAddress": false,
@@ -7036,6 +7037,7 @@
     "id": "engine.can.00.o2_sensor_bank_1_sensor_2_p75",
     "label": "O2 Sensor (Bank 1, Sensor 2)",
     "unit": "volt",
+    "decimals": 2,
     "request": {
       "targetAddress": 2016,
       "isFunctionalAddress": false,
@@ -7061,6 +7063,7 @@
     "id": "engine.can.00.a_f_sensor_bank1_sensor_1_p82",
     "label": "A/F Sensor (Bank1, Sensor 1)",
     "unit": "mA",
+    "decimals": 2,
     "request": {
       "targetAddress": 2016,
       "isFunctionalAddress": false,

@@ -35,5 +35,9 @@ class FieldCatalogLoaderTest {
         assertTrue(wheelSpeed.label.startsWith("Unconfirmed:"))
         assertTrue("wheel slip" in wheelSpeed.searchTerms)
         assertTrue(!fuelStatus.enabled && !wheelSpeed.enabled)
+
+        assertEquals(2, catalog.getValue("engine.can.00.o2_sensor_bank_1_sensor_1_p74").decimals)
+        assertEquals(2, catalog.getValue("engine.can.00.o2_sensor_bank_1_sensor_2_p75").decimals)
+        assertEquals(2, catalog.getValue("engine.can.00.a_f_sensor_bank1_sensor_1_p82").decimals)
     }
 }

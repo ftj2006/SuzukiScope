@@ -202,6 +202,10 @@ class DashboardCarScreen(carContext: CarContext) : Screen(carContext) {
                     ),
                     GridItem.IMAGE_TYPE_LARGE,
                 )
+                .setOnClickListener {
+                    carContext.getCarService(androidx.car.app.ScreenManager::class.java)
+                        .push(GaugeHistoryScreen(carContext, field.id))
+                }
                 .build()
         }
         val gridLimit = runCatching {

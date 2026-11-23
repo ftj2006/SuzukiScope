@@ -1,5 +1,4 @@
-- Power reduction gauges: live and long-term (constant derate), learned per car by VIN on this phone; export and reset in Diagnostics
-- Searchable unconfirmed fields (fuel status, intake cam, clutch, cruise, wheel speeds)
-- Disconnects after 5 min without ECU data; Exit closes the app
-- Recording notification when minimised; Bluetooth icon in Android Auto
-- Fewer debug files: one connection log per session, AA crash files only for real crashes
+- Tap an Android Auto gauge to view its recent history graph
+- Boost (relative) learned range now rounds in 0.1 bar steps
+- A/F and O2 sensor readings display two decimal places
+- Power reduction gauges learned per vehicle; export references in Diagnostics

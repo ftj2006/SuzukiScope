@@ -68,6 +68,8 @@ class DashboardViewModel(
     /** Rolling recent-value buffer per field (regardless of logging state) for the History tab. */
     private val _history = MutableStateFlow<Map<String, List<Double>>>(emptyMap())
     val history: StateFlow<Map<String, List<Double>>> = _history.asStateFlow()
+    private val _timestampedHistory = MutableStateFlow<Map<String, List<Reading>>>(emptyMap())
+    val timestampedHistory: StateFlow<Map<String, List<Reading>>> = _timestampedHistory.asStateFlow()
     private val historySize = 120
 
     private val _isLogging = MutableStateFlow(false)
@@ -165,6 +167,8 @@ class DashboardViewModel(
         fieldReadingAtMs[reading.fieldId] = lastReadingAtMs
         _values.value = _values.value + (reading.fieldId to reading.value)
         _history.value = _history.value + (reading.fieldId to ((_history.value[reading.fieldId].orEmpty() + reading.value).takeLast(historySize)))
+        _timestampedHistory.value = _timestampedHistory.value + (reading.fieldId to
+            ((_timestampedHistory.value[reading.fieldId].orEmpty() + reading).takeLast(historySize)))
         // Only real vehicle data teaches the scale; test data would teach a fake range.
         if (isUsingHardwareSource()) {
             lastHardwareReadingAtMs = lastReadingAtMs
@@ -376,7 +380,12 @@ class DashboardViewModel(
             lo = mid - minSpan / 2
             hi = mid + minSpan / 2
         }
-        return learnedGaugeRange(lo, hi, listOfNotNull(field.warningThreshold, field.criticalThreshold))
+        return learnedGaugeRange(
+            lo,
+            hi,
+            listOfNotNull(field.warningThreshold, field.criticalThreshold),
+            stepSize = if (field.id == "engine.boost_relative") 0.1 else null,
+        )
     }
 
     /** Widens any gauge whose saved scale is narrower than [learnedScale] allows (fixes scales learned before that rule). */
@@ -478,6 +487,7 @@ class DashboardViewModel(
         updatePowerReferenceStatus()
         _values.value = emptyMap()
         _peaks.value = emptyMap()
+        _timestampedHistory.value = emptyMap()
         markers.clear()
         fieldsInCritical.clear()
         fieldReadingAtMs.clear()

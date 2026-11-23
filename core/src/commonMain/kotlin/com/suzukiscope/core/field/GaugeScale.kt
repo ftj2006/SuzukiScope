@@ -4,22 +4,42 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.pow
+import kotlin.math.round
 
 /**
  * Gauge range for a learned [min]..[max], rounded outwards to half-decade steps sized to the
  * values (e.g. 96 -> 100 in 5s, 6420 -> 6500 in 500s, 1.55 -> 2.0 in 0.5s), always tall enough
  * to show any [thresholds] and at least two steps wide so a narrow early range isn't jumpy.
  */
-fun learnedGaugeRange(min: Double, max: Double, thresholds: List<Double> = emptyList()): Pair<Double, Double> {
+fun learnedGaugeRange(
+    min: Double,
+    max: Double,
+    thresholds: List<Double> = emptyList(),
+    stepSize: Double? = null,
+): Pair<Double, Double> {
     val top = (thresholds + max).max()
     // Step from the span, not the absolute value, so 84..120 rounds in 5s rather than 50s.
     val magnitude = (top - min).takeIf { it > 0.0 }
         ?: maxOf(kotlin.math.abs(min), kotlin.math.abs(top)).takeIf { it > 0.0 }
         ?: 1.0
-    val step = 10.0.pow(floor(log10(magnitude))) / 2
-    val lo = floor(min / step) * step
-    val hi = maxOf(ceil(top / step) * step, lo + 2 * step)
+    val step = stepSize?.takeIf { it > 0.0 } ?: 10.0.pow(floor(log10(magnitude))) / 2
+    val lo = floorToStep(min, step)
+    val hi = maxOf(ceilToStep(top, step), lo + 2 * step)
     return lo to hi
+}
+
+private fun floorToStep(value: Double, step: Double): Double {
+    val units = value / step
+    val nearest = round(units)
+    val rounded = (if (kotlin.math.abs(units - nearest) < 1e-9) nearest else floor(units)) * step
+    return round(rounded * 1e10) / 1e10
+}
+
+private fun ceilToStep(value: Double, step: Double): Double {
+    val units = value / step
+    val nearest = round(units)
+    val rounded = (if (kotlin.math.abs(units - nearest) < 1e-9) nearest else ceil(units)) * step
+    return round(rounded * 1e10) / 1e10
 }
 
 /**

@@ -75,7 +75,7 @@ class FieldRegistry(initial: List<FieldDefinition> = emptyList()) {
             val existing = _fields[field.id]
             _fields[field.id] = existing?.copy(
                 label = field.label, unit = field.unit, searchTerms = field.searchTerms,
-                request = field.request, decode = field.decode, derivedMetric = field.derivedMetric,
+                request = field.request, decode = field.decode, decimals = field.decimals, derivedMetric = field.derivedMetric,
             )
                 ?: field
             if (field.id !in defaultRanges) defaultRanges[field.id] = field.gaugeMin to field.gaugeMax

@@ -18,6 +18,12 @@ class GaugeScaleTest {
     }
 
     @Test
+    fun relativeBoostCanUseTenthsInsteadOfHalfBarSteps() {
+        assertEquals(-0.1 to 1.8, learnedGaugeRange(-0.1, 1.8, stepSize = 0.1))
+        assertEquals(-0.1 to 1.9, learnedGaugeRange(-0.1, 1.81, stepSize = 0.1))
+    }
+
+    @Test
     fun roundsUpToNiceStepForItsMagnitude() {
         assertEquals(6500.0, niceScaleMax(6420.0))
         assertTrue(kotlin.math.abs(niceScaleMax(1.55) - 1.6) < 1e-9)
